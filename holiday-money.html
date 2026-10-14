@@ -135,17 +135,21 @@
   .group-head .g-name { font-weight: 800; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .group-head .g-meta { font-size: .78rem; color: var(--muted); white-space: nowrap; }
   .g-menu { background: none; border: none; color: var(--muted); font-size: 1.2rem; padding: 4px 8px; cursor: pointer; }
-  ul.exp-list { list-style: none; margin: 0; padding: 0 0 6px; min-height: 6px; }
+  ul.exp-list, ul.fund-list { list-style: none; margin: 0; padding: 0 0 6px; min-height: 6px; }
   ul.exp-list:empty::before {
     content: "Drag purchases here"; display: block; text-align: center; color: var(--muted);
     font-size: .8rem; padding: 14px; border: 1.5px dashed var(--border); border-radius: 12px; margin-bottom: 6px;
   }
-  .group.collapsed ul.exp-list { display: none; }
-  li.exp {
+  ul.fund-list:empty::before {
+    content: "Drag budget items here"; display: block; text-align: center; color: var(--muted);
+    font-size: .8rem; padding: 14px; border: 1.5px dashed var(--border); border-radius: 12px; margin-bottom: 6px;
+  }
+  .group.collapsed ul.exp-list, .group.collapsed ul.fund-list { display: none; }
+  li.exp, li.fund {
     display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-top: 1px solid var(--border);
     background: var(--card); cursor: pointer;
   }
-  li.exp.dragging {
+  li.exp.dragging, li.fund.dragging {
     position: fixed; z-index: 100; pointer-events: none; border: 1px solid var(--accent); border-radius: 14px;
     box-shadow: 0 14px 34px rgba(0,0,0,.25); padding: 9px 8px; transform: scale(1.03); opacity: .96;
   }
@@ -391,12 +395,19 @@
           <div><label for="fundAmount">Amount</label><input id="fundAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" enterkeyhint="done"></div>
           <div><label for="fundCurrency">Currency</label><select class="field" id="fundCurrency"></select></div>
         </div>
-        <button class="btn" id="addFundBtn">+ Add money</button>
+        <div style="margin-top:8px">
+          <label for="fundGroup">Group</label>
+          <select class="field" id="fundGroup"></select>
+        </div>
+        <button class="btn" id="addFundBtn" style="margin-top:12px">+ Add money</button>
       </div>
-      <div class="card">
-        <h2>💵 My holiday money</h2>
-        <ul class="list" id="fundList"></ul>
+
+      <div class="toolbar">
+        <div class="grow" id="budgetTotal">Total budget: 0</div>
+        <button class="tb-btn" id="newFundGroupBtn">＋ Group</button>
       </div>
+      <p class="muted" style="margin:-4px 2px 10px">Hold <b>⠿</b> to drag budgets between groups. Tap to edit.</p>
+      <div id="budgetGroups"></div>
     </section>
 
     <!-- ================= SPEND ================= -->
@@ -549,6 +560,22 @@
   <button class="btn danger" id="fDelete">Delete purchase</button>
 </div>
 
+<!-- Budget item sheet (edit) -->
+<div class="sheet" id="fundSheet">
+  <div class="grab"></div>
+  <h3 id="fundSheetTitle">Edit budget</h3>
+  <label for="sfLabel">Where's it from?</label>
+  <input id="sfLabel" placeholder="e.g. Savings, Birthday money" enterkeyhint="next">
+  <div class="row">
+    <div><label for="sfAmount">Amount</label><input id="sfAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></div>
+    <div><label for="sfCurrency">Currency</label><select class="field" id="sfCurrency"></select></div>
+  </div>
+  <label for="sfGroup">Group</label>
+  <select class="field" id="sfGroup"></select>
+  <button class="btn alt" id="sfSave">Save budget</button>
+  <button class="btn danger" id="sfDelete">Delete budget</button>
+</div>
+
 <!-- Generic action / prompt sheet -->
 <div class="sheet" id="actionSheet">
   <div class="grab"></div>
@@ -655,7 +682,10 @@ const defaultTrip = () => ({
   startedManually: false, startedAt: 0,
   displayCurrency: "AUD", spendCurrency: "JPY", tab: "home",
   convFrom: "AUD", convTo: "JPY",
-  funds: [], expenses: [], groups: [], collapsed: {}, lastGroup: "", created: Date.now()
+  funds: [], expenses: [],
+  groups: [], collapsed: {}, lastGroup: "",
+  fundGroups: [], fundCollapsed: {}, lastFundGroup: "",
+  created: Date.now()
 });
 const defaultApp = () => ({
   theme: "light", trips: [], currentTripId: null, barcodes: {},
@@ -671,7 +701,12 @@ function loadApp() {
       const a = { ...defaultApp(), ...saved };
       a.trips = a.trips.map(t => {
         const tz = t.timeZone || CURRENCY_TZ[t.spendCurrency] || "local";
-        return { ...defaultTrip(), timeZone: tz, startTz: t.startTz || tz, endTz: t.endTz || tz, ...t };
+        const res = { ...defaultTrip(), timeZone: tz, startTz: t.startTz || tz, endTz: t.endTz || tz, ...t };
+        res.fundGroups = res.fundGroups || [];
+        res.fundCollapsed = res.fundCollapsed || {};
+        res.lastFundGroup = res.lastFundGroup || "";
+        (res.funds || []).forEach(f => { f.groupId = f.groupId || ""; });
+        return res;
       });
       return a;
     }
@@ -992,20 +1027,63 @@ function renderSummary() {
     : `<div class="empty">No purchases yet</div>`;
 }
 
+function fundGroupOf(f) {
+  return (state.fundGroups || []).some(g => g.id === f.groupId) ? f.groupId : "";
+}
+
+function fillFundGroupSelect(sel, value) {
+  if (!state) return;
+  state.fundGroups = state.fundGroups || [];
+  sel.innerHTML = `<option value="">📥 Unsorted</option>` +
+    state.fundGroups.map(g => `<option value="${g.id}">📁 ${esc(g.name)}</option>`).join("") +
+    `<option value="__new">＋ New group…</option>`;
+  sel.value = state.fundGroups.some(g => g.id === value) ? value : "";
+}
+
+function fundHTML(f) {
+  const cur = state.displayCurrency;
+  const d = new Date(f.date || Date.now());
+  const dateStr = d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return `<li class="fund" data-id="${f.id}">
+    <div class="thumb">💵</div>
+    <div class="li-main">
+      <div class="li-title">${esc(f.label || "Holiday money")}</div>
+      <div class="li-sub">📅 ${dateStr}</div>
+    </div>
+    <div class="li-amt" style="color:var(--good)">+${fmt(f.amount, f.currency)}
+      ${f.currency !== cur ? `<small>≈ ${fmt(convert(f.amount, f.currency, cur), cur)}</small>` : ""}</div>
+    <div class="handle" aria-label="Drag to move">⠿</div>
+  </li>`;
+}
+
 function renderFunds() {
-  const cur = state.displayCurrency, list = $("fundList");
-  if (!state.funds.length) { list.innerHTML = `<li class="empty" style="display:block">No money added yet</li>`; return; }
-  list.innerHTML = state.funds.map(f => `
-    <li>
-      <div class="thumb">💵</div>
-      <div class="li-main">
-        <div class="li-title">${esc(f.label || "Holiday money")}</div>
-        <div class="li-sub">${new Date(f.date).toLocaleDateString()}</div>
+  const cur = state.displayCurrency, box = $("budgetGroups");
+  state.fundGroups = state.fundGroups || [];
+  state.fundCollapsed = state.fundCollapsed || {};
+  fillFundGroupSelect($("fundGroup"), state.lastFundGroup);
+
+  const total = (state.funds || []).reduce((a, f) => a + convert(f.amount, f.currency, cur), 0);
+  $("budgetTotal").textContent = `Total budget: ${fmt(total, cur)}`;
+
+  if (!state.funds.length && !state.fundGroups.length) {
+    box.innerHTML = `<div class="card empty">💰 No money added yet.<br>Add your holiday funds above to get started.</div>`;
+    return;
+  }
+
+  const sections = [{ id: "", name: "📥 Unsorted" }, ...state.fundGroups];
+  box.innerHTML = sections.map(g => {
+    const items = state.funds.filter(f => fundGroupOf(f) === g.id);
+    const subTotal = items.reduce((a, f) => a + convert(f.amount, f.currency, cur), 0);
+    return `<div class="group ${state.fundCollapsed[g.id] ? "collapsed" : ""}" data-fund-group="${g.id}">
+      <div class="group-head" data-fund-group-head="${g.id}">
+        <span class="chev">▾</span>
+        <span class="g-name">${g.id ? "📁 " : ""}${esc(g.name)}</span>
+        <span class="g-meta">${items.length} • ${fmt(subTotal, cur)}</span>
+        <button class="g-menu" data-fund-group-menu="${g.id}" aria-label="Budget group options">⋯</button>
       </div>
-      <div class="li-amt">${fmt(f.amount, f.currency)}
-        ${f.currency !== cur ? `<small>≈ ${fmt(convert(f.amount, f.currency, cur), cur)}</small>` : ""}</div>
-      <button class="del" data-del-fund="${f.id}" aria-label="Remove">✕</button>
-    </li>`).join("");
+      <ul class="fund-list" data-group="${g.id}">${items.map(fundHTML).join("")}</ul>
+    </div>`;
+  }).join("");
 }
 
 function expenseHTML(e) {
@@ -1214,12 +1292,18 @@ function openTrip(id) {
   const t = app.trips.find(x => x.id === id);
   if (!t) return;
   state = t;
+  state.fundGroups = state.fundGroups || [];
+  state.fundCollapsed = state.fundCollapsed || {};
+  state.lastFundGroup = state.lastFundGroup || "";
+  (state.funds || []).forEach(f => { f.groupId = f.groupId || ""; });
   app.currentTripId = id;
   save();
   document.body.classList.add("in-trip");
   fillCurrencySelect($("displayCurrency"), state.displayCurrency, true);
   fillCurrencySelect($("settingsCurrency"), state.displayCurrency);
   fillCurrencySelect($("fundCurrency"), state.displayCurrency);
+  fillCurrencySelect($("sfCurrency"), state.displayCurrency);
+  fillFundGroupSelect($("fundGroup"), state.lastFundGroup);
   fillCurrencySelect($("fCurrency"), state.spendCurrency);
   fillCurrencySelect($("convFrom"), state.convFrom);
   fillCurrencySelect($("convTo"), state.convTo);
@@ -1680,10 +1764,15 @@ let drag = null;
 $("spendGroups").addEventListener("pointerdown", e => {
   const handle = e.target.closest(".handle");
   if (!handle || e.button > 0) return;
-  startDrag(e, handle.closest("li.exp"));
+  startDrag(e, handle.closest("li.exp"), "spend");
+});
+$("budgetGroups").addEventListener("pointerdown", e => {
+  const handle = e.target.closest(".handle");
+  if (!handle || e.button > 0) return;
+  startDrag(e, handle.closest("li.fund"), "fund");
 });
 
-function startDrag(e, li) {
+function startDrag(e, li, type = "spend") {
   e.preventDefault();
   const r = li.getBoundingClientRect();
   const ph = document.createElement("li");
@@ -1692,7 +1781,8 @@ function startDrag(e, li) {
   Object.assign(li.style, { width: r.width + "px", left: r.left + "px", top: r.top + "px" });
   li.classList.add("dragging");
   document.body.classList.add("is-dragging");
-  drag = { li, ph, offY: e.clientY - r.top, x: e.clientX, y: e.clientY };
+  const container = type === "fund" ? $("budgetGroups") : $("spendGroups");
+  drag = { type, li, ph, container, offY: e.clientY - r.top, x: e.clientX, y: e.clientY };
   navigator.vibrate?.(15);
   window.addEventListener("pointermove", onDragMove, { passive: false });
   window.addEventListener("pointerup", endDrag);
@@ -1711,12 +1801,15 @@ function onDragMove(e) {
 function hitTest() {
   const el = document.elementFromPoint(drag.x, drag.y);
   const group = el && el.closest(".group");
-  if (!group) return;
-  document.querySelectorAll(".group.drop-target").forEach(g => g !== group && g.classList.remove("drop-target"));
+  if (!group || !drag.container.contains(group)) return;
+  drag.container.querySelectorAll(".group.drop-target").forEach(g => g !== group && g.classList.remove("drop-target"));
   group.classList.add("drop-target");
-  const ul = group.querySelector("ul.exp-list");
+  const ulClass = drag.type === "fund" ? "ul.fund-list" : "ul.exp-list";
+  const itemClass = drag.type === "fund" ? ":scope > li.fund:not(.dragging)" : ":scope > li.exp:not(.dragging)";
+  const ul = group.querySelector(ulClass);
+  if (!ul) return;
   if (group.classList.contains("collapsed")) { if (drag.ph.parentNode !== ul) ul.prepend(drag.ph); return; }
-  const items = [...ul.querySelectorAll(":scope > li.exp:not(.dragging)")];
+  const items = [...ul.querySelectorAll(itemClass)];
   const before = items.find(it => { const r = it.getBoundingClientRect(); return drag.y < r.top + r.height / 2; });
   if (before) { if (before.previousElementSibling !== drag.ph) before.before(drag.ph); }
   else if (ul.lastElementChild !== drag.ph) ul.appendChild(drag.ph);
@@ -1738,23 +1831,35 @@ function endDrag() {
   window.removeEventListener("pointermove", onDragMove);
   window.removeEventListener("pointerup", endDrag);
   window.removeEventListener("pointercancel", endDrag);
-  const { li, ph } = drag; drag = null;
+  const { li, ph, type, container } = drag; drag = null;
   li.classList.remove("dragging"); li.style.cssText = "";
   ph.replaceWith(li);
   document.body.classList.remove("is-dragging");
-  document.querySelectorAll(".group.drop-target").forEach(g => g.classList.remove("drop-target"));
+  container.querySelectorAll(".group.drop-target").forEach(g => g.classList.remove("drop-target"));
 
-  // Save the new order + groups exactly as they now appear on screen
-  const byId = Object.fromEntries(state.expenses.map(e => [e.id, e]));
-  const ordered = [];
-  document.querySelectorAll("#spendGroups ul.exp-list").forEach(ul => {
-    ul.querySelectorAll(":scope > li.exp").forEach(item => {
-      const exp = byId[item.dataset.id];
-      if (exp) { exp.groupId = ul.dataset.group; ordered.push(exp); delete byId[item.dataset.id]; }
+  if (type === "fund") {
+    const byId = Object.fromEntries(state.funds.map(f => [f.id, f]));
+    const ordered = [];
+    document.querySelectorAll("#budgetGroups ul.fund-list").forEach(ul => {
+      ul.querySelectorAll(":scope > li.fund").forEach(item => {
+        const fund = byId[item.dataset.id];
+        if (fund) { fund.groupId = ul.dataset.group; ordered.push(fund); delete byId[item.dataset.id]; }
+      });
     });
-  });
-  state.expenses = ordered.concat(Object.values(byId));
-  save(); renderAll();
+    state.funds = ordered.concat(Object.values(byId));
+    save(); renderAll();
+  } else {
+    const byId = Object.fromEntries(state.expenses.map(e => [e.id, e]));
+    const ordered = [];
+    document.querySelectorAll("#spendGroups ul.exp-list").forEach(ul => {
+      ul.querySelectorAll(":scope > li.exp").forEach(item => {
+        const exp = byId[item.dataset.id];
+        if (exp) { exp.groupId = ul.dataset.group; ordered.push(exp); delete byId[item.dataset.id]; }
+      });
+    });
+    state.expenses = ordered.concat(Object.values(byId));
+    save(); renderAll();
+  }
 }
 
 /* =========================================================
@@ -1941,21 +2046,125 @@ $("startNowBtn").onclick = () => {
   toast("🎉 Holiday started! Spending unlocked.");
 };
 
+let editingFundId = null;
+function openFundSheet(id) {
+  const f = state.funds.find(x => x.id === id);
+  if (!f) return;
+  editingFundId = f.id;
+  $("fundSheetTitle").textContent = "Edit budget";
+  $("sfLabel").value = f.label || "";
+  $("sfAmount").value = f.amount || "";
+  fillCurrencySelect($("sfCurrency"), f.currency || state.displayCurrency);
+  fillFundGroupSelect($("sfGroup"), f.groupId);
+  openSheet("fundSheet");
+}
+
+function fundGroupMenu(gid) {
+  const g = state.fundGroups.find(x => x.id === gid);
+  const sortByAmt = (dir) => {
+    const cur = state.displayCurrency;
+    const inGroup = state.funds.filter(f => fundGroupOf(f) === gid).sort((a, b) => dir * (convert(b.amount, b.currency, cur) - convert(a.amount, a.currency, cur)));
+    let i = 0;
+    state.funds = state.funds.map(f => fundGroupOf(f) === gid ? inGroup[i++] : f);
+    save(); renderAll();
+  };
+  const opts = [
+    { label: "💵 Sort by amount (highest first)", onClick: () => sortByAmt(1) },
+    { label: "💵 Sort by amount (lowest first)", onClick: () => sortByAmt(-1) }
+  ];
+  if (g) {
+    const idx = state.fundGroups.indexOf(g);
+    opts.unshift({ label: "✏️ Rename group", onClick: () => promptSheet("Rename group", "Group name", g.name, name => { g.name = name; save(); renderAll(); }) });
+    if (idx > 0) opts.push({ label: "⬆️ Move group up", onClick: () => { state.fundGroups.splice(idx, 1); state.fundGroups.splice(idx - 1, 0, g); save(); renderAll(); } });
+    if (idx < state.fundGroups.length - 1) opts.push({ label: "⬇️ Move group down", onClick: () => { state.fundGroups.splice(idx, 1); state.fundGroups.splice(idx + 1, 0, g); save(); renderAll(); } });
+    opts.push({ label: "🗑 Delete group (keep budgets)", danger: true, onClick: () => {
+      state.funds.forEach(f => { if (f.groupId === gid) f.groupId = ""; });
+      state.fundGroups.splice(idx, 1); save(); renderAll(); toast("Group deleted – budgets moved to Unsorted");
+    } });
+  }
+  actionSheet(g ? g.name : "Unsorted", opts);
+}
+
+$("newFundGroupBtn").onclick = () => promptSheet("New budget group", "e.g. Bank savings, Cash, Emergency fund", "", name => {
+  state.fundGroups = state.fundGroups || [];
+  state.fundGroups.push({ id: uid(), name });
+  save(); renderAll(); toast("📁 Group created – drag budgets into it");
+}, "Create group");
+
+$("fundGroup").onchange = e => {
+  if (e.target.value !== "__new") return;
+  promptSheet("New budget group", "e.g. Bank savings, Cash, Emergency fund", "", name => {
+    const g = { id: uid(), name: name.trim() };
+    state.fundGroups.push(g); save();
+    fillFundGroupSelect($("fundGroup"), g.id);
+  }, "Create group");
+};
+$("sfGroup").onchange = e => {
+  if (e.target.value !== "__new") return;
+  promptSheet("New budget group", "e.g. Bank savings, Cash, Emergency fund", "", name => {
+    const g = { id: uid(), name: name.trim() };
+    state.fundGroups.push(g); save();
+    fillFundGroupSelect($("sfGroup"), g.id);
+  }, "Create group");
+};
+
+$("budgetGroups").addEventListener("click", e => {
+  if (e.target.closest(".handle")) return;
+  const menu = e.target.closest("[data-fund-group-menu]");
+  if (menu) return fundGroupMenu(menu.dataset.fundGroupMenu);
+  const head = e.target.closest("[data-fund-group-head]");
+  if (head) {
+    const gid = head.dataset.fundGroupHead;
+    state.fundCollapsed[gid] = !state.fundCollapsed[gid];
+    save();
+    head.parentElement.classList.toggle("collapsed", state.fundCollapsed[gid]);
+    return;
+  }
+  const li = e.target.closest("li.fund");
+  if (!li) return;
+  openFundSheet(li.dataset.id);
+});
+
 $("addFundBtn").onclick = () => {
   if (!state) return;
   const amount = parseFloat($("fundAmount").value);
   if (!(amount > 0)) return toast("Please enter an amount");
-  state.funds.push({ id: uid(), label: $("fundLabel").value.trim(), amount, currency: $("fundCurrency").value, date: Date.now() });
+  const gid = $("fundGroup").value === "__new" ? "" : $("fundGroup").value;
+  state.funds.push({
+    id: uid(),
+    label: $("fundLabel").value.trim() || "Holiday money",
+    amount,
+    currency: $("fundCurrency").value,
+    groupId: gid,
+    date: Date.now()
+  });
+  state.lastFundGroup = gid;
   $("fundAmount").value = ""; $("fundLabel").value = "";
   $("fundAmount").blur();
   save(); renderAll(); toast("💰 Money added");
 };
 $("fundLabel").onkeydown = e => { if (e.key === "Enter") $("fundAmount").focus(); };
 $("fundAmount").onkeydown = e => { if (e.key === "Enter") $("addFundBtn").click(); };
-$("fundList").onclick = e => {
-  if (!state) return;
-  const id = e.target.dataset.delFund;
-  if (id && confirm("Remove this money from your budget?")) { state.funds = state.funds.filter(f => f.id !== id); save(); renderAll(); }
+
+$("sfSave").onclick = () => {
+  if (!editingFundId) return;
+  const f = state.funds.find(x => x.id === editingFundId);
+  if (!f) return;
+  const label = $("sfLabel").value.trim() || "Holiday money";
+  const amount = parseFloat($("sfAmount").value);
+  if (!(amount > 0)) return toast("Please enter an amount");
+  f.label = label;
+  f.amount = amount;
+  f.currency = $("sfCurrency").value;
+  f.groupId = $("sfGroup").value === "__new" ? "" : $("sfGroup").value;
+  state.lastFundGroup = f.groupId;
+  save(); closeSheets(); renderAll(); toast("💰 Budget updated");
+};
+
+$("sfDelete").onclick = () => {
+  if (!editingFundId || !confirm("Delete this budget item?")) return;
+  state.funds = state.funds.filter(f => f.id !== editingFundId);
+  save(); closeSheets(); renderAll(); toast("🗑 Budget deleted");
 };
 
 $("fab").onclick = () => openExpenseSheet();
