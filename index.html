@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0ea5a4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Holiday Money">
+<title>Holiday Money</title>
+<style>
+  :root {
+    --bg: #f3f6fb; --card: #ffffff; --text: #1d2433; --muted: #6b7489; --border: #e2e7f0;
+    --accent: #0ea5a4; --accent-2: #f97316; --danger: #e11d48; --good: #16a34a; --input: #f5f7fb;
+    --shadow: 0 4px 18px rgba(20, 30, 60, .08); --accent-soft: rgba(14, 165, 164, .12);
+    --app-w: 640px;
+  }
+  [data-theme="dark"] {
+    --bg: #0d121c; --card: #172030; --text: #e8ecf4; --muted: #93a0b8; --border: #273247;
+    --accent: #2dd4bf; --accent-2: #fb923c; --danger: #fb7185; --good: #4ade80; --input: #101827;
+    --shadow: 0 4px 18px rgba(0, 0, 0, .35); --accent-soft: rgba(45, 212, 191, .14);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none;
+    transition: background .3s, color .3s;
+  }
+  body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+  #app { max-width: var(--app-w); margin: 0 auto; min-height: 100dvh; }
+
+  /* ---------- App bar ---------- */
+  .appbar {
+    position: sticky; top: 0; z-index: 20;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+    background: linear-gradient(120deg, var(--accent), #3b82f6); color: #fff;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .appbar .titles { flex: 1; min-width: 0; }
+  .appbar h1 { margin: 0; font-size: 1.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .appbar .sub { font-size: .78rem; opacity: .85; }
+  .chip-btn, .appbar select {
+    background: rgba(255,255,255,.2); color: #fff; border: 1px solid rgba(255,255,255,.35);
+    border-radius: 999px; padding: 7px 11px; font-size: .9rem; font-weight: 600; cursor: pointer;
+  }
+  .appbar select option { color: #000; }
+
+  main { padding: 14px 14px calc(100px + env(safe-area-inset-bottom)); }
+  .page { display: none; }
+  .page.active { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  label { display: block; font-size: .8rem; color: var(--muted); margin: 10px 0 4px; }
+  input, select, button, textarea { font: inherit; }
+  input, select.field {
+    width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--input); color: var(--text); font-size: 16px; /* 16px stops iOS zoom */
+    min-height: 46px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; min-width: 0; }
+  .btn {
+    display: block; width: 100%; margin-top: 14px; padding: 13px; border: none; border-radius: 12px;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 1rem; cursor: pointer;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn.alt { background: var(--accent-2); }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn.danger { background: transparent; color: var(--danger); border: 1.5px solid var(--danger); }
+  .btn:disabled { opacity: .45; }
+  .muted { color: var(--muted); font-size: .8rem; }
+  .center { text-align: center; }
+
+  /* ---------- Home ---------- */
+  .countdown-title { text-align: center; color: var(--muted); margin: 0 0 12px; font-size: .92rem; }
+  .countdown { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .unit { text-align: center; padding: 12px 4px; border-radius: 14px; background: var(--input); border: 1px solid var(--border); }
+  .unit .num { font-size: clamp(1.6rem, 8vw, 2.4rem); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); }
+  .unit .lbl { font-size: .68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .unit.up .num { color: var(--accent-2); }
+  .mini-clock { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 14px; background: var(--input); border: 1px solid var(--border); text-align: center; }
+  .mini-clock.show { display: block; }
+  .mini-title { font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
+  .mini-units { display: flex; justify-content: center; gap: 12px; font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mini-units b { font-size: 1.2rem; color: var(--text); margin-right: 1px; }
+  .mini-bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 8px; }
+  .mini-bar div { height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width 1s linear; }
+  .pill { display: inline-block; padding: 5px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600; background: var(--accent-soft); color: var(--accent); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--input); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+  .stat .k { font-size: .75rem; color: var(--muted); }
+  .stat .v { font-size: 1.25rem; font-weight: 800; margin-top: 3px; word-break: break-word; }
+  .progress { height: 12px; background: var(--input); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin-top: 14px; }
+  .progress > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--good), var(--accent-2)); transition: width .4s; }
+  .progress.over > div { background: var(--danger); }
+  .cat-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: .88rem; }
+  .cat-row .bar { flex: 1; height: 8px; background: var(--input); border-radius: 99px; overflow: hidden; }
+  .cat-row .bar div { height: 100%; background: var(--accent); border-radius: 99px; }
+  .cat-row .amt { min-width: 80px; text-align: right; font-weight: 600; }
+
+  /* ---------- Simple lists (budget) ---------- */
+  ul.list { list-style: none; padding: 0; margin: 10px 0 0; }
+  ul.list li { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--border); }
+  ul.list li:last-child { border-bottom: none; }
+  .li-main { flex: 1; min-width: 0; }
+  .li-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .li-sub { font-size: .76rem; color: var(--muted); margin-top: 2px; }
+  .li-amt { text-align: right; font-weight: 700; white-space: nowrap; font-size: .95rem; }
+  .li-amt small { display: block; font-weight: 400; color: var(--muted); font-size: .72rem; }
+  .del { background: none; border: none; color: var(--muted); font-size: 1.1rem; padding: 8px; cursor: pointer; }
+  .empty { color: var(--muted); text-align: center; padding: 22px 0; font-size: .9rem; }
+
+  /* ---------- Spending list ---------- */
+  .locked { padding: 12px; border-radius: 14px; background: var(--input); border: 1.5px dashed var(--border); color: var(--muted); text-align: center; margin-bottom: 12px; font-size: .9rem; }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .toolbar .grow { flex: 1; font-weight: 700; }
+  .tb-btn { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 8px 13px; font-weight: 600; font-size: .85rem; cursor: pointer; }
+  .tb-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .group { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 4px 10px; margin-bottom: 12px; box-shadow: var(--shadow); transition: outline-color .2s; outline: 2px solid transparent; }
+  .group.drop-target { outline-color: var(--accent); }
+  .group-head { display: flex; align-items: center; gap: 8px; padding: 10px 2px; cursor: pointer; user-select: none; }
+  .group-head .chev { transition: transform .2s; color: var(--muted); width: 18px; text-align: center; }
+  .group.collapsed .chev { transform: rotate(-90deg); }
+  .group-head .g-name { font-weight: 800; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group-head .g-meta { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+  .g-menu { background: none; border: none; color: var(--muted); font-size: 1.2rem; padding: 4px 8px; cursor: pointer; }
+  ul.exp-list { list-style: none; margin: 0; padding: 0 0 6px; min-height: 6px; }
+  ul.exp-list:empty::before {
+    content: "Drag purchases here"; display: block; text-align: center; color: var(--muted);
+    font-size: .8rem; padding: 14px; border: 1.5px dashed var(--border); border-radius: 12px; margin-bottom: 6px;
+  }
+  .group.collapsed ul.exp-list { display: none; }
+  li.exp {
+    display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-top: 1px solid var(--border);
+    background: var(--card); cursor: pointer;
+  }
+  li.exp.dragging {
+    position: fixed; z-index: 100; pointer-events: none; border: 1px solid var(--accent); border-radius: 14px;
+    box-shadow: 0 14px 34px rgba(0,0,0,.25); padding: 9px 8px; transform: scale(1.03); opacity: .96;
+  }
+  li.placeholder { list-style: none; border: 2px dashed var(--accent); background: var(--accent-soft); border-radius: 12px; margin: 4px 0; }
+  .thumb { flex: 0 0 46px; width: 46px; height: 46px; border-radius: 12px; background: var(--input); display: grid; place-items: center; font-size: 1.4rem; overflow: hidden; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .handle { touch-action: none; padding: 12px 6px 12px 10px; color: var(--muted); font-size: 1.3rem; cursor: grab; line-height: 1; }
+  .check { display: none; flex: 0 0 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); }
+  body.select-mode .check { display: block; }
+  li.exp.selected .check { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--card); }
+  li.exp.selected { background: var(--accent-soft); }
+  .li-sub .dot { margin: 0 4px; opacity: .6; }
+  .badge { font-size: .68rem; padding: 1px 6px; border-radius: 6px; background: var(--input); border: 1px solid var(--border); margin-left: 4px; }
+
+  /* ---------- Floating + select bar ---------- */
+  .fab {
+    position: fixed; z-index: 25; width: 60px; height: 60px; border-radius: 50%; border: none;
+    right: max(18px, calc((100vw - var(--app-w)) / 2 + 18px));
+    bottom: calc(86px + env(safe-area-inset-bottom));
+    background: var(--accent-2); color: #fff; font-size: 2rem; box-shadow: 0 8px 22px rgba(249,115,22,.45);
+    display: none; cursor: pointer;
+  }
+  body[data-tab="spend"]:not(.select-mode) .fab { display: grid; place-items: center; }
+  .fab.disabled { filter: grayscale(1); opacity: .6; }
+  .selectbar {
+    position: fixed; z-index: 26; left: 0; right: 0; max-width: var(--app-w); margin: 0 auto;
+    bottom: calc(74px + env(safe-area-inset-bottom)); padding: 10px 14px;
+    display: none; gap: 8px; align-items: center; background: var(--card); border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 18px rgba(0,0,0,.08);
+  }
+  body.select-mode[data-tab="spend"] .selectbar { display: flex; }
+  .selectbar .count { flex: 1; font-weight: 700; font-size: .9rem; }
+
+  /* ---------- Bottom tab bar ---------- */
+  .tabbar {
+    position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; max-width: var(--app-w); margin: 0 auto;
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    background: var(--card); border-top: 1px solid var(--border);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tab {
+    background: none; border: none; color: var(--muted); display: flex; flex-direction: column;
+    align-items: center; gap: 2px; padding: 6px 0; font-size: .7rem; font-weight: 600; cursor: pointer; border-radius: 12px;
+  }
+  .tab .ic { font-size: 1.35rem; line-height: 1.2; filter: grayscale(1); opacity: .7; transition: .2s; }
+  .tab.active { color: var(--accent); }
+  .tab.active .ic { filter: none; opacity: 1; transform: translateY(-2px); }
+
+  /* ---------- Sheets ---------- */
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 40; }
+  .backdrop.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: var(--app-w); margin: 0 auto; z-index: 50;
+    background: var(--card); border-radius: 22px 22px 0 0; padding: 6px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height: 92dvh; overflow-y: auto; transform: translateY(105%); transition: transform .3s cubic-bezier(.2,.8,.2,1);
+    visibility: hidden;
+  }
+  .sheet.open { transform: none; visibility: visible; }
+  .sheet .grab { width: 42px; height: 5px; border-radius: 3px; background: var(--border); margin: 8px auto 12px; }
+  .sheet h3 { margin: 0 0 6px; font-size: 1.1rem; }
+  .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 4px; }
+  .quick button {
+    padding: 14px 8px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--input);
+    color: var(--text); font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .quick button span { font-size: 1.6rem; }
+  .tag { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-size: .85rem; font-weight: 600; margin-top: 10px; }
+  .tag .x { margin-left: auto; background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; }
+  .photo-preview { position: relative; margin-top: 10px; border-radius: 14px; overflow: hidden; }
+  .photo-preview img { width: 100%; max-height: 260px; object-fit: cover; display: block; }
+  .photo-preview button { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.6); color: #fff; border: none; border-radius: 999px; padding: 6px 12px; font-weight: 600; cursor: pointer; }
+  .opt { display: block; width: 100%; text-align: left; padding: 15px 14px; border: none; background: var(--input); color: var(--text); border-radius: 12px; margin-top: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; }
+  .opt.danger { color: var(--danger); }
+  .opt.current { outline: 2px solid var(--accent); }
+
+  /* ---------- Overlays ---------- */
+  .overlay { position: fixed; inset: 0; z-index: 70; background: #000; color: #fff; display: none; flex-direction: column; align-items: center; justify-content: center; padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); }
+  .overlay.open { display: flex; }
+  #reader { width: 100%; max-width: 520px; border-radius: 16px; overflow: hidden; background: #111; min-height: 200px; }
+  #reader video { width: 100% !important; object-fit: cover; }
+  .scan-msg { margin: 14px 0; text-align: center; font-size: .92rem; opacity: .9; max-width: 420px; }
+  .scan-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .scan-actions button { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+  #photoViewer img { max-width: 100%; max-height: 85dvh; border-radius: 12px; }
+
+  .toast {
+    position: fixed; z-index: 90; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg);
+    padding: 11px 18px; border-radius: 12px; opacity: 0; transition: all .3s; font-size: .9rem;
+    pointer-events: none; max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .converter-result { margin-top: 16px; font-size: 1.9rem; font-weight: 800; text-align: center; color: var(--accent); word-break: break-word; }
+  .swap { flex: 0 0 48px !important; height: 46px; margin-top: 28px; background: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 12px; font-size: 1.2rem; cursor: pointer; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .chips button { background: var(--input); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 6px 12px; font-weight: 600; cursor: pointer; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row select { width: auto; max-width: 60%; }
+
+  /* ---------- Trips home screen ---------- */
+  :root { --pending: #f97316; --live: #16a34a; --ended: #8b93a1; }
+  #tripView { display: none; }
+  body.in-trip #tripView { display: block; }
+  body.in-trip #tripsView { display: none; }
+  .trips-fab { display: grid !important; place-items: center; bottom: calc(24px + env(safe-area-inset-bottom)) !important; }
+  body.in-trip .trips-fab { display: none !important; }
+  .legend { display: flex; gap: 14px; justify-content: center; font-size: .78rem; color: var(--muted); margin: 2px 0 14px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .trip-section { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 18px 4px 8px; }
+  .trip-card {
+    position: relative; border-radius: 20px; padding: 16px 16px 14px; color: #fff; margin-bottom: 12px;
+    cursor: pointer; box-shadow: var(--shadow); overflow: hidden; transition: transform .15s;
+  }
+  .trip-card:active { transform: scale(.98); }
+  .trip-card::after { content: "✈"; position: absolute; right: -10px; bottom: -28px; font-size: 7rem; opacity: .12; transform: rotate(-20deg); pointer-events: none; }
+  .trip-card.pending { background: linear-gradient(135deg, #fb923c, #ea580c); }
+  .trip-card.live { background: linear-gradient(135deg, #22c55e, #15803d); }
+  .trip-card.ended { background: linear-gradient(135deg, #a1a8b5, #6b7280); }
+  .trip-top { display: flex; align-items: flex-start; gap: 8px; }
+  .trip-name { flex: 1; font-size: 1.25rem; font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trip-status { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; background: rgba(255,255,255,.25); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+  .trip-more { background: rgba(255,255,255,.2); border: none; color: #fff; border-radius: 999px; width: 30px; height: 26px; font-size: 1rem; cursor: pointer; position: relative; z-index: 1; }
+  .trip-dates { font-size: .8rem; opacity: .9; margin-top: 2px; }
+  .trip-timer { font-size: 1.05rem; font-weight: 700; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  .trip-money { display: flex; justify-content: space-between; font-size: .82rem; margin-top: 10px; opacity: .95; }
+  .trip-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,.3); margin-top: 6px; overflow: hidden; }
+  .trip-bar div { height: 100%; background: #fff; border-radius: 99px; }
+  .back-btn { font-size: 1.4rem; line-height: 1; padding: 4px 12px 6px; }
+  body.in-trip[data-status="upcoming"] #tripView .appbar,
+  body.in-trip[data-status="unset"] #tripView .appbar { background: linear-gradient(120deg, #fb923c, #ea580c); }
+  body.in-trip[data-status="active"] #tripView .appbar { background: linear-gradient(120deg, #22c55e, #15803d); }
+  body.in-trip[data-status="over"] #tripView .appbar { background: linear-gradient(120deg, #a1a8b5, #6b7280); }
+  .tz-clocks {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;
+    padding: 10px 12px; border-radius: 14px; background: var(--input); border: 1px solid var(--border);
+  }
+  .tz-box { min-width: 0; }
+  .tz-box .tz-lbl { font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tz-inline-select {
+    margin-top: 2px; padding: 3px 6px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); font-size: .78rem; font-weight: 700; width: 100%; max-width: 100%;
+  }
+  .tz-box .tz-time { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 3px; }
+  .tz-box .tz-sub { font-size: .72rem; color: var(--muted); }
+  .tz-hint { font-size: .76rem; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+</style>
+</head>
+<body data-tab="">
+<div id="app">
+  <!-- ================= TRIPS HOME SCREEN ================= -->
+  <div id="tripsView">
+    <header class="appbar">
+      <div class="titles">
+        <h1>✈️ My Trips</h1>
+        <div class="sub" id="tripsSub">Holiday Money</div>
+      </div>
+      <button class="chip-btn" id="themeBtn3" title="Light / dark mode">🌙</button>
+    </header>
+    <main>
+      <div class="legend">
+        <span><i style="background:var(--pending)"></i>Pending</span>
+        <span><i style="background:var(--live)"></i>In progress</span>
+        <span><i style="background:var(--ended)"></i>Ended</span>
+      </div>
+      <div id="tripList"></div>
+    </main>
+    <button class="fab trips-fab" id="newTripBtn" aria-label="New trip">＋</button>
+  </div>
+
+  <!-- ================= INSIDE A TRIP ================= -->
+  <div id="tripView">
+  <header class="appbar">
+    <button class="chip-btn back-btn" id="backBtn" aria-label="All trips">‹</button>
+    <div class="titles">
+      <h1 id="tripTitle">Holiday Money</h1>
+      <div class="sub" id="appSub">Home</div>
+    </div>
+    <select id="displayCurrency" title="Show totals in"></select>
+    <button class="chip-btn" id="themeBtn" title="Light / dark mode">🌙</button>
+  </header>
+
+  <main>
+    <!-- ================= HOME ================= -->
+    <section class="page" id="page-home">
+      <div class="card">
+        <p class="countdown-title" id="countdownTitle">Countdown to your holiday</p>
+        <div class="countdown">
+          <div class="unit"><div class="num" id="cdD">0</div><div class="lbl">Days</div></div>
+          <div class="unit"><div class="num" id="cdH">00</div><div class="lbl">Hours</div></div>
+          <div class="unit"><div class="num" id="cdM">00</div><div class="lbl">Mins</div></div>
+          <div class="unit"><div class="num" id="cdS">00</div><div class="lbl">Secs</div></div>
+        </div>
+        <div class="mini-clock" id="miniClock">
+          <div class="mini-title">⏳ Time left until the holiday ends</div>
+          <div class="mini-units">
+            <span><b id="mD">0</b>d</span><span><b id="mH">00</b>h</span><span><b id="mM">00</b>m</span><span><b id="mS">00</b>s</span>
+          </div>
+          <div class="mini-bar"><div id="miniBar"></div></div>
+        </div>
+        <div class="tz-clocks" id="tzClocks">
+          <div class="tz-box">
+            <div class="tz-lbl">🌍 Destination clock</div>
+            <select class="tz-inline-select" id="homeTzSelect" title="Change destination time zone"></select>
+            <div class="tz-time" id="tzDestTime">--:--</div>
+            <div class="tz-sub" id="tzDestSub"></div>
+          </div>
+          <div class="tz-box" style="text-align:right">
+            <div class="tz-lbl">📱 Your device time</div>
+            <div class="tz-time" id="tzLocalTime" style="margin-top:6px">--:--</div>
+            <div class="tz-sub" id="tzDiffSub"></div>
+          </div>
+        </div>
+        <p class="center" style="margin:14px 0 0"><span class="pill" id="statusPill">No date set</span></p>
+        <button class="btn alt" id="startNowBtn">▶ Start holiday now</button>
+      </div>
+
+      <div class="card">
+        <h2>📊 Summary</h2>
+        <div class="stats">
+          <div class="stat"><div class="k">Total budget</div><div class="v" id="sBudget">0</div></div>
+          <div class="stat"><div class="k">Spent</div><div class="v" id="sSpent" style="color:var(--accent-2)">0</div></div>
+          <div class="stat"><div class="k">Remaining</div><div class="v" id="sLeft" style="color:var(--good)">0</div></div>
+          <div class="stat"><div class="k" id="sDailyLbl">Per day left</div><div class="v" id="sDaily">–</div></div>
+        </div>
+        <div class="progress" id="progress"><div id="progressBar"></div></div>
+        <p class="muted" id="progressText" style="margin:6px 0 0"></p>
+      </div>
+
+      <div class="card">
+        <h2>🏷️ Spending by category</h2>
+        <div id="catBreakdown"></div>
+      </div>
+    </section>
+
+    <!-- ================= BUDGET ================= -->
+    <section class="page" id="page-budget">
+      <div class="card">
+        <h2>💰 Add holiday money</h2>
+        <label for="fundLabel">Where's it from?</label>
+        <input id="fundLabel" placeholder="e.g. Savings, Birthday money" enterkeyhint="next">
+        <div class="row">
+          <div><label for="fundAmount">Amount</label><input id="fundAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" enterkeyhint="done"></div>
+          <div><label for="fundCurrency">Currency</label><select class="field" id="fundCurrency"></select></div>
+        </div>
+        <button class="btn" id="addFundBtn">+ Add money</button>
+      </div>
+      <div class="card">
+        <h2>💵 My holiday money</h2>
+        <ul class="list" id="fundList"></ul>
+      </div>
+    </section>
+
+    <!-- ================= SPEND ================= -->
+    <section class="page" id="page-spend">
+      <div class="locked" id="spendLocked"></div>
+      <div class="toolbar">
+        <div class="grow" id="spendTotal">Spent: 0</div>
+        <button class="tb-btn" id="newGroupBtn">＋ Group</button>
+        <button class="tb-btn" id="selectBtn">Select</button>
+      </div>
+      <p class="muted" style="margin:-4px 2px 10px">Hold <b>⠿</b> to drag purchases between groups. Tap a purchase to edit.</p>
+      <div id="spendGroups"></div>
+    </section>
+
+    <!-- ================= CONVERT ================= -->
+    <section class="page" id="page-convert">
+      <div class="card">
+        <h2>💱 Money converter</h2>
+        <label for="convAmount">Amount</label>
+        <input id="convAmount" type="number" inputmode="decimal" value="100" min="0" step="0.01">
+        <div class="chips" id="convChips"></div>
+        <div class="row">
+          <div><label for="convFrom">From</label><select class="field" id="convFrom"></select></div>
+          <button class="swap" id="swapBtn" title="Swap">⇅</button>
+          <div><label for="convTo">To</label><select class="field" id="convTo"></select></div>
+        </div>
+        <div class="converter-result" id="convResult">–</div>
+        <p class="muted center" id="convRate"></p>
+        <p class="muted center" id="ratesInfo"></p>
+        <button class="btn ghost" id="refreshRatesBtn">↻ Refresh rates</button>
+      </div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="page" id="page-settings">
+      <div class="card">
+        <h2>🗓️ Trip details</h2>
+        <label for="tripName">Holiday name</label>
+        <input id="tripName" placeholder="e.g. Japan 2026">
+        <label for="tripTz">🌍 Destination time zone</label>
+        <select class="field" id="tripTz"></select>
+        <label for="startDate">🛫 Holiday starts</label>
+        <div class="row">
+          <div><input id="startDate" type="datetime-local"></div>
+          <div><select class="field" id="startTz" title="Time zone for start time"></select></div>
+        </div>
+        <label for="endDate">🛬 Holiday ends (optional)</label>
+        <div class="row">
+          <div><input id="endDate" type="datetime-local"></div>
+          <div><select class="field" id="endTz" title="Time zone for end time"></select></div>
+        </div>
+        <div class="tz-hint" id="settingsTzHint"></div>
+      </div>
+      <div class="card">
+        <h2>⚙️ App</h2>
+        <div class="setting-row"><span>Show totals in</span><select class="field" id="settingsCurrency"></select></div>
+        <div class="setting-row"><span>Appearance</span><button class="tb-btn" id="themeBtn2">🌙 Dark</button></div>
+        <div class="setting-row"><span>Saved on this device</span><span class="muted" id="storageInfo"></span></div>
+      </div>
+      <button class="btn danger" id="resetBtn">🗑 Delete this trip</button>
+    </section>
+  </main>
+
+  <button class="fab" id="fab" aria-label="Add purchase">＋</button>
+
+  <div class="selectbar" id="selectBar">
+    <span class="count" id="selCount">0 selected</span>
+    <button class="tb-btn" id="selMove">📁 Group</button>
+    <button class="tb-btn" id="selDelete" style="color:var(--danger)">🗑</button>
+    <button class="tb-btn on" id="selDone">Done</button>
+  </div>
+
+  <nav class="tabbar">
+    <button class="tab" data-tab="home"><span class="ic">🏠</span>Home</button>
+    <button class="tab" data-tab="budget"><span class="ic">💰</span>Budget</button>
+    <button class="tab" data-tab="spend"><span class="ic">🛍️</span>Bought</button>
+    <button class="tab" data-tab="convert"><span class="ic">💱</span>Convert</button>
+    <button class="tab" data-tab="settings"><span class="ic">⚙️</span>Settings</button>
+  </nav>
+  </div><!-- /tripView -->
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+
+<!-- New trip sheet -->
+<div class="sheet" id="tripSheet">
+  <div class="grab"></div>
+  <h3>✈️ New trip</h3>
+  <label for="ntName">Trip name</label>
+  <input id="ntName" placeholder="e.g. Japan 2026" enterkeyhint="next">
+  <div class="row">
+    <div><label for="ntHome">My money</label><select class="field" id="ntHome"></select></div>
+    <div><label for="ntLocal">Spending in</label><select class="field" id="ntLocal"></select></div>
+  </div>
+  <label for="ntTz">🌍 Destination time zone</label>
+  <select class="field" id="ntTz"></select>
+  <label for="ntStart">🛫 Starts</label>
+  <div class="row">
+    <div><input id="ntStart" type="datetime-local"></div>
+    <div><select class="field" id="ntStartTz" title="Time zone for start time"></select></div>
+  </div>
+  <label for="ntEnd">🛬 Ends (optional)</label>
+  <div class="row">
+    <div><input id="ntEnd" type="datetime-local"></div>
+    <div><select class="field" id="ntEndTz" title="Time zone for end time"></select></div>
+  </div>
+  <div class="tz-hint" id="ntTzHint"></div>
+  <button class="btn alt" id="ntCreate">Create trip</button>
+</div>
+
+<!-- Purchase sheet (add / edit) -->
+<div class="sheet" id="expSheet">
+  <div class="grab"></div>
+  <h3 id="expSheetTitle">New purchase</h3>
+  <div class="quick">
+    <button id="scanBtn"><span>📷</span>Scan barcode</button>
+    <button id="photoBtn"><span>📸</span>Take photo</button>
+  </div>
+  <div id="barcodeTag"></div>
+  <div id="photoPreview"></div>
+  <label for="fDesc">Item bought</label>
+  <input id="fDesc" placeholder="e.g. Ramen in Shibuya" enterkeyhint="next">
+  <div class="row">
+    <div><label for="fAmount">Amount</label><input id="fAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></div>
+    <div><label for="fCurrency">Currency</label><select class="field" id="fCurrency"></select></div>
+  </div>
+  <div id="fConverted" class="muted" style="margin-top:6px"></div>
+  <div class="row">
+    <div><label for="fDate" id="fDateLbl">Date</label><input id="fDate" type="date"></div>
+    <div><label for="fTime" id="fTimeLbl">Time</label><input id="fTime" type="time"></div>
+  </div>
+  <label for="fTz">🕒 Time zone of this time</label>
+  <select class="field" id="fTz"></select>
+  <div class="tz-hint" id="fTzHint"></div>
+  <div class="row">
+    <div><label for="fCat">Category</label>
+      <select class="field" id="fCat">
+        <option value="food">🍜 Food &amp; Drink</option>
+        <option value="transport">🚆 Transport</option>
+        <option value="stay">🏨 Accommodation</option>
+        <option value="shopping">🛍️ Shopping</option>
+        <option value="fun">🎢 Activities</option>
+        <option value="gifts">🎁 Gifts</option>
+        <option value="other">📦 Other</option>
+      </select>
+    </div>
+    <div><label for="fGroup">Group</label><select class="field" id="fGroup"></select></div>
+  </div>
+  <button class="btn alt" id="fSave">Save purchase</button>
+  <button class="btn danger" id="fDelete">Delete purchase</button>
+</div>
+
+<!-- Generic action / prompt sheet -->
+<div class="sheet" id="actionSheet">
+  <div class="grab"></div>
+  <h3 id="actionTitle"></h3>
+  <div id="actionBody"></div>
+</div>
+
+<!-- Barcode scanner -->
+<div class="overlay" id="scanner">
+  <div id="reader"></div>
+  <p class="scan-msg" id="scanMsg">Starting camera…</p>
+  <div class="scan-actions">
+    <button id="scanFromPhoto">🖼️ Scan from photo</button>
+    <button id="scanManual">⌨️ Type code</button>
+    <button id="scanClose">✕ Close</button>
+  </div>
+</div>
+
+<!-- Photo viewer -->
+<div class="overlay" id="photoViewer"><img alt="Purchase photo"><p class="scan-msg">Tap to close</p></div>
+
+<div class="toast" id="toast"></div>
+<div id="hiddenReader" style="display:none"></div>
+<input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+<input type="file" id="barcodeFileInput" accept="image/*" capture="environment" hidden>
+
+<script>
+/* =========================================================
+   Currencies & exchange rates (units per 1 USD)
+   ========================================================= */
+const CURRENCIES = {
+  AUD: "🇦🇺 Australian Dollar", USD: "🇺🇸 US Dollar", EUR: "🇪🇺 Euro", GBP: "🇬🇧 British Pound",
+  JPY: "🇯🇵 Japanese Yen", NZD: "🇳🇿 NZ Dollar", CAD: "🇨🇦 Canadian Dollar", CNY: "🇨🇳 Chinese Yuan",
+  KRW: "🇰🇷 Korean Won", THB: "🇹🇭 Thai Baht", SGD: "🇸🇬 Singapore Dollar", HKD: "🇭🇰 Hong Kong Dollar",
+  IDR: "🇮🇩 Indonesian Rupiah", MYR: "🇲🇾 Malaysian Ringgit", VND: "🇻🇳 Vietnamese Dong", PHP: "🇵🇭 Philippine Peso",
+  INR: "🇮🇳 Indian Rupee", FJD: "🇫🇯 Fijian Dollar", CHF: "🇨🇭 Swiss Franc", SEK: "🇸🇪 Swedish Krona",
+  NOK: "🇳🇴 Norwegian Krone", DKK: "🇩🇰 Danish Krone", MXN: "🇲🇽 Mexican Peso", AED: "🇦🇪 UAE Dirham",
+  ZAR: "🇿🇦 South African Rand", TWD: "🇹🇼 Taiwan Dollar", BRL: "🇧🇷 Brazilian Real", TRY: "🇹🇷 Turkish Lira"
+};
+const FALLBACK_RATES = {
+  USD: 1, AUD: 1.52, EUR: 0.92, GBP: 0.79, JPY: 150, NZD: 1.66, CAD: 1.37, CNY: 7.2, KRW: 1350,
+  THB: 35, SGD: 1.34, HKD: 7.8, IDR: 15700, MYR: 4.6, VND: 25000, PHP: 57, INR: 83, FJD: 2.25,
+  CHF: 0.88, SEK: 10.5, NOK: 10.7, DKK: 6.9, MXN: 18, AED: 3.67, ZAR: 18.5, TWD: 32, BRL: 5.2, TRY: 34
+};
+const CAT = {
+  food: ["🍜", "Food & Drink"], transport: ["🚆", "Transport"], stay: ["🏨", "Accommodation"],
+  shopping: ["🛍️", "Shopping"], fun: ["🎢", "Activities"], gifts: ["🎁", "Gifts"], other: ["📦", "Other"]
+};
+const TAB_NAMES = { home: "Home", budget: "Budget", spend: "What I bought", convert: "Converter", settings: "Settings" };
+
+const TIMEZONES = [
+  ["local", "📱 Same as my device", "Your device"],
+  ["Pacific/Auckland", "🇳🇿 Auckland / New Zealand", "Auckland"],
+  ["Pacific/Fiji", "🇫🇯 Suva / Fiji", "Fiji"],
+  ["Australia/Sydney", "🇦🇺 Sydney / Melbourne", "Sydney"],
+  ["Australia/Brisbane", "🇦🇺 Brisbane / Queensland", "Brisbane"],
+  ["Australia/Adelaide", "🇦🇺 Adelaide / Darwin", "Adelaide"],
+  ["Australia/Perth", "🇦🇺 Perth / WA", "Perth"],
+  ["Asia/Tokyo", "🇯🇵 Tokyo / Japan", "Tokyo"],
+  ["Asia/Seoul", "🇰🇷 Seoul / South Korea", "Seoul"],
+  ["Asia/Shanghai", "🇨🇳 Beijing / Shanghai", "Shanghai"],
+  ["Asia/Hong_Kong", "🇭🇰 Hong Kong", "Hong Kong"],
+  ["Asia/Taipei", "🇹🇼 Taipei / Taiwan", "Taipei"],
+  ["Asia/Manila", "🇵🇭 Manila / Philippines", "Manila"],
+  ["Asia/Singapore", "🇸🇬 Singapore / Kuala Lumpur", "Singapore"],
+  ["Asia/Makassar", "🇮🇩 Bali / Makassar", "Bali"],
+  ["Asia/Jakarta", "🇮🇩 Jakarta / Java", "Jakarta"],
+  ["Asia/Bangkok", "🇹🇭 Bangkok / Vietnam", "Bangkok"],
+  ["Asia/Kolkata", "🇮🇳 Mumbai / New Delhi", "India"],
+  ["Asia/Dubai", "🇦🇪 Dubai / UAE", "Dubai"],
+  ["Europe/Istanbul", "🇹🇷 Istanbul / Turkey", "Istanbul"],
+  ["Africa/Johannesburg", "🇿🇦 Johannesburg / South Africa", "Johannesburg"],
+  ["Europe/Paris", "🇪🇺 Paris / Rome / Berlin", "Central Europe"],
+  ["Europe/Zurich", "🇨🇭 Zurich / Switzerland", "Zurich"],
+  ["Europe/Stockholm", "🇸🇪 Stockholm / Oslo / Copenhagen", "Scandinavia"],
+  ["Europe/London", "🇬🇧 London / UK", "London"],
+  ["America/Sao_Paulo", "🇧🇷 São Paulo / Brazil", "São Paulo"],
+  ["America/New_York", "🇺🇸 New York / Toronto (Eastern)", "New York"],
+  ["America/Chicago", "🇺🇸 Chicago / Mexico City (Central)", "Chicago"],
+  ["America/Denver", "🇺🇸 Denver / Calgary (Mountain)", "Denver"],
+  ["America/Los_Angeles", "🇺🇸 Los Angeles / Vancouver (Pacific)", "Los Angeles"],
+  ["Pacific/Honolulu", "🇺🇸 Honolulu / Hawaii", "Honolulu"]
+];
+const CURRENCY_TZ = {
+  AUD: "Australia/Sydney", USD: "America/New_York", EUR: "Europe/Paris", GBP: "Europe/London",
+  JPY: "Asia/Tokyo", NZD: "Pacific/Auckland", CAD: "America/New_York", CNY: "Asia/Shanghai",
+  KRW: "Asia/Seoul", THB: "Asia/Bangkok", SGD: "Asia/Singapore", HKD: "Asia/Hong_Kong",
+  IDR: "Asia/Makassar", MYR: "Asia/Singapore", VND: "Asia/Bangkok", PHP: "Asia/Manila",
+  INR: "Asia/Kolkata", FJD: "Pacific/Fiji", CHF: "Europe/Zurich", SEK: "Europe/Stockholm",
+  NOK: "Europe/Stockholm", DKK: "Europe/Stockholm", MXN: "America/Chicago", AED: "Asia/Dubai",
+  ZAR: "Africa/Johannesburg", TWD: "Asia/Taipei", BRL: "America/Sao_Paulo", TRY: "Europe/Istanbul"
+};
+
+/* =========================================================
+   State (auto-saved to localStorage)
+   app   = everything (all trips + shared settings)
+   state = the trip that is currently open (null on the trips screen)
+   ========================================================= */
+const STORAGE_KEY = "holidayMoneyTracker.v2";
+const OLD_STORAGE_KEY = "holidayMoneyTracker.v1";
+const defaultTrip = () => ({
+  id: uid(), tripName: "", startDate: "", endDate: "",
+  timeZone: "Asia/Tokyo", startTz: "Asia/Tokyo", endTz: "Asia/Tokyo",
+  startedManually: false, startedAt: 0,
+  displayCurrency: "AUD", spendCurrency: "JPY", tab: "home",
+  convFrom: "AUD", convTo: "JPY",
+  funds: [], expenses: [], groups: [], collapsed: {}, lastGroup: "", created: Date.now()
+});
+const defaultApp = () => ({
+  theme: "light", trips: [], currentTripId: null, barcodes: {},
+  rates: { ...FALLBACK_RATES }, ratesUpdated: 0, ratesLive: false
+});
+let app;          // loaded in init()
+let state = null;
+
+function loadApp() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved) {
+      const a = { ...defaultApp(), ...saved };
+      a.trips = a.trips.map(t => {
+        const tz = t.timeZone || CURRENCY_TZ[t.spendCurrency] || "local";
+        return { ...defaultTrip(), timeZone: tz, startTz: t.startTz || tz, endTz: t.endTz || tz, ...t };
+      });
+      return a;
+    }
+    // Move data from the old single-trip version into the first trip
+    const old = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY));
+    const a = defaultApp();
+    if (old) {
+      a.theme = old.theme || "light";
+      a.barcodes = old.barcodes || {};
+      if (old.rates) { a.rates = old.rates; a.ratesUpdated = old.ratesUpdated || 0; a.ratesLive = !!old.ratesLive; }
+      const t = { ...defaultTrip() };
+      Object.keys(t).forEach(k => { if (k !== "id" && old[k] !== undefined) t[k] = old[k]; });
+      t.timeZone = old.timeZone || CURRENCY_TZ[t.spendCurrency] || "local";
+      t.startTz = old.startTz || t.timeZone;
+      t.endTz = old.endTz || t.timeZone;
+      if (!t.tripName) t.tripName = "My holiday";
+      a.trips.push(t);
+    }
+    return a;
+  } catch { return defaultApp(); }
+}
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
+  catch { toast("⚠️ Couldn't save – storage is full"); }
+}
+
+/* =========================================================
+   Photo storage (IndexedDB – photos are too big for localStorage)
+   ========================================================= */
+const photoCache = {};
+const PhotoDB = {
+  db: null,
+  open() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open("holidayMoneyPhotos", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("photos");
+        r.onsuccess = () => { this.db = r.result; res(true); };
+        r.onerror = () => res(false);
+      } catch { res(false); }
+    });
+  },
+  store(mode) { return this.db.transaction("photos", mode).objectStore("photos"); },
+  req(fn) {
+    return new Promise((res, rej) => {
+      if (!this.db) return rej(new Error("no db"));
+      const r = fn(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  },
+  put(id, data) { return this.req(() => this.store("readwrite").put(data, id)); },
+  del(id) { return this.req(() => this.store("readwrite").delete(id)).catch(() => {}); },
+  clear() { return this.req(() => this.store("readwrite").clear()).catch(() => {}); },
+  loadAll() {
+    return new Promise(res => {
+      if (!this.db) return res();
+      const r = this.store("readonly").openCursor();
+      r.onsuccess = () => { const c = r.result; if (c) { photoCache[c.key] = c.value; c.continue(); } else res(); };
+      r.onerror = () => res();
+    });
+  }
+};
+
+/* =========================================================
+   Helpers & Time Zone Engine
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pad = n => String(n).padStart(2, "0");
+
+function validTz(tz) { return tz && tz !== "local" ? tz : undefined; }
+function tzInfo(tz) { return TIMEZONES.find(z => z[0] === tz) || TIMEZONES[0]; }
+
+function partsInTz(ms, tz) {
+  const z = validTz(tz);
+  if (!z) {
+    const d = new Date(ms);
+    return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(), hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds() };
+  }
+  const p = {};
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: z, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
+  }).formatToParts(new Date(ms)).forEach(x => { if (x.type !== "literal") p[x.type] = Number(x.value); });
+  return p;
+}
+
+function tzOffsetMin(tz, ms = Date.now()) {
+  const z = validTz(tz);
+  if (!z) return -new Date(ms).getTimezoneOffset();
+  const p = partsInTz(ms, z);
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return Math.round((asUtc - ms) / 60000);
+}
+
+function fmtUtcOffset(mins) {
+  const sign = mins >= 0 ? "+" : "−";
+  const a = Math.abs(mins), h = Math.floor(a / 60), m = a % 60;
+  return `UTC${sign}${h}${m ? ":" + pad(m) : ""}`;
+}
+
+function tzDiffLabel(tz, ms = Date.now()) {
+  const diff = tzOffsetMin(tz, ms) - tzOffsetMin("local", ms);
+  if (diff === 0) return "Same as your time";
+  const sign = diff > 0 ? "+" : "−";
+  const a = Math.abs(diff), h = Math.floor(a / 60), m = a % 60;
+  const amt = `${h ? h + "h" : ""}${m ? (h ? " " : "") + m + "m" : ""}`;
+  return `${sign}${amt} (${diff > 0 ? amt + " ahead" : amt + " behind"})`;
+}
+
+function parseInTz(str, tz) {
+  if (!str) return null;
+  const [datePart, timePart = "00:00"] = str.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  if (!y || !m || !d) return null;
+  if (!validTz(tz)) return new Date(y, m - 1, d, hh || 0, mm || 0).getTime();
+  const utcGuess = Date.UTC(y, m - 1, d, hh || 0, mm || 0);
+  const off1 = tzOffsetMin(tz, utcGuess);
+  const off2 = tzOffsetMin(tz, utcGuess - off1 * 60000);
+  return utcGuess - off2 * 60000;
+}
+
+function parseTripStart(t = state) { return t ? parseInTz(t.startDate, t.startTz || t.timeZone) : null; }
+function parseTripEnd(t = state) { return t ? parseInTz(t.endDate, t.endTz || t.timeZone) : null; }
+
+const toDateInput = (ts, tz = state?.timeZone) => { const p = partsInTz(ts, tz); return `${p.year}-${pad(p.month)}-${pad(p.day)}`; };
+const toTimeInput = (ts, tz = state?.timeZone) => { const p = partsInTz(ts, tz); return `${pad(p.hour)}:${pad(p.minute)}`; };
+const toDateTimeLocal = (ts, tz = state?.timeZone) => `${toDateInput(ts, tz)}T${toTimeInput(ts, tz)}`;
+
+function fromInputs(date, time, tz = state?.timeZone) {
+  if (!date) return Date.now();
+  return parseInTz(`${date}T${time || "00:00"}`, tz) ?? Date.now();
+}
+
+function fillTzSelect(sel, value, compact = false) {
+  if (!sel) return;
+  const now = Date.now();
+  sel.innerHTML = TIMEZONES.map(([id, label, city]) => {
+    const off = fmtUtcOffset(tzOffsetMin(id, now));
+    const flag = label.split(" ")[0];
+    return `<option value="${id}">${compact ? `${flag} ${city} (${off})` : `${label} (${off})`}</option>`;
+  }).join("");
+  sel.value = TIMEZONES.some(z => z[0] === value) ? value : "local";
+}
+
+function renderTzHint(destTz, startStr, startTz, endStr, endTz, el) {
+  if (!el) return;
+  const [, , destCity] = tzInfo(destTz);
+  const diff = tzDiffLabel(destTz);
+  const lines = [`🌍 Destination: <b>${esc(destCity)}</b> (${fmtUtcOffset(tzOffsetMin(destTz))}) • ${diff}`];
+  const fmtEntry = (label, str, entryTz) => {
+    const ms = parseInTz(str, entryTz);
+    if (!ms) return;
+    const [, , entryCity] = tzInfo(entryTz);
+    const inDest = new Date(ms).toLocaleString(undefined, { timeZone: validTz(destTz), weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    const inHome = new Date(ms).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    lines.push(`${label} (${esc(entryCity)}): <b>${inDest}</b> in ${esc(destCity)} • <b>${inHome}</b> on your device`);
+  };
+  if (startStr) fmtEntry("🛫 Starts", startStr, startTz || destTz);
+  if (endStr) fmtEntry("🛬 Ends", endStr, endTz || destTz);
+  el.innerHTML = lines.join("<br>");
+}
+
+function convert(amount, from, to) {
+  const r = app.rates;
+  if (!r[from] || !r[to]) return amount;
+  return amount / r[from] * r[to];
+}
+function fmt(amount, cur) {
+  try { return new Intl.NumberFormat(undefined, { style: "currency", currency: cur }).format(amount); }
+  catch { return amount.toFixed(2) + " " + cur; }
+}
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2300);
+}
+function fillCurrencySelect(sel, value, short = false) {
+  sel.innerHTML = Object.entries(CURRENCIES)
+    .map(([code, name]) => `<option value="${code}">${short ? name.split(" ")[0] + " " + code : code + " – " + name}</option>`).join("");
+  sel.value = value;
+}
+const groupExists = id => !!id && state.groups.some(g => g.id === id);
+const groupOf = e => groupExists(e.groupId) ? e.groupId : "";
+
+/* =========================================================
+   Tabs
+   ========================================================= */
+function showTab(tab) {
+  state.tab = tab; save();
+  document.body.dataset.tab = tab;
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + tab));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  $("appSub").textContent = TAB_NAMES[tab];
+  if (tab !== "spend") setSelectMode(false);
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => showTab(t.dataset.tab));
+
+/* =========================================================
+   Holiday status + countdown
+   ========================================================= */
+function holidayStatus(now = Date.now(), t = state) {
+  if (!t) return "unset";
+  const start = parseTripStart(t);
+  const end = parseTripEnd(t);
+  if (end && now >= end) return "over";
+  if (t.startedManually || (start && now >= start)) return "active";
+  if (start) return "upcoming";
+  return "unset";
+}
+function setUnits(ms) {
+  const s = Math.floor(Math.max(0, ms) / 1000);
+  $("cdD").textContent = Math.floor(s / 86400);
+  $("cdH").textContent = pad(Math.floor(s % 86400 / 3600));
+  $("cdM").textContent = pad(Math.floor(s % 3600 / 60));
+  $("cdS").textContent = pad(s % 60);
+}
+let lastStatus = null;
+function tick() {
+  if (!state) { tickTrips(); return; }
+  const now = Date.now(), status = holidayStatus(now), name = state.tripName || "your holiday";
+  document.body.dataset.status = status;
+  const start = parseTripStart(state);
+  const end = parseTripEnd(state);
+  const began = start && start < now ? start : (state.startedAt || now);
+  if (status === "unset") {
+    $("countdownTitle").textContent = "Set a start date in ⚙️ Settings to start the countdown";
+    setUnits(0); $("statusPill").textContent = "No date set";
+  } else if (status === "upcoming") {
+    const [, , sCity] = tzInfo(state.startTz || state.timeZone);
+    $("countdownTitle").textContent = `Countdown to ${name} ✈️ (${sCity} time)`;
+    setUnits(start - now); $("statusPill").textContent = "⏳ Coming up";
+  } else if (status === "active") {
+    $("countdownTitle").textContent = `${name} is on! 🌴 Time on holiday`;
+    setUnits(now - began);
+    $("statusPill").textContent = `🌴 Day ${Math.floor((now - began) / 86400000) + 1} of your holiday`;
+  } else {
+    $("countdownTitle").textContent = `${name} has finished. Welcome home! 🏠 Your holiday lasted`;
+    setUnits(end && began < end ? end - began : 0); $("statusPill").textContent = "✅ Holiday over";
+  }
+  // Big clock counts up (orange) during the trip
+  document.querySelectorAll(".countdown .unit").forEach(u => u.classList.toggle("up", status === "active"));
+
+  // Smaller clock counting down to the end time
+  const showMini = status === "active" && !!end;
+  $("miniClock").classList.toggle("show", showMini);
+  if (showMini) {
+    const s = Math.floor(Math.max(0, end - now) / 1000);
+    $("mD").textContent = Math.floor(s / 86400);
+    $("mH").textContent = pad(Math.floor(s % 86400 / 3600));
+    $("mM").textContent = pad(Math.floor(s % 3600 / 60));
+    $("mS").textContent = pad(s % 60);
+    const total = end - began;
+    $("miniBar").style.width = (total > 0 ? Math.min(100, (now - began) / total * 100) : 0) + "%";
+  }
+
+  // Live dual clocks (Destination vs Device)
+  const tz = state.timeZone || "local";
+  if ($("homeTzSelect") && $("homeTzSelect").value !== tz) $("homeTzSelect").value = tz;
+  $("tzDestTime").textContent = new Date(now).toLocaleTimeString(undefined, { timeZone: validTz(tz), hour: "numeric", minute: "2-digit", second: "2-digit" });
+  $("tzDestSub").textContent = new Date(now).toLocaleDateString(undefined, { timeZone: validTz(tz), weekday: "short", day: "numeric", month: "short" }) + ` (${fmtUtcOffset(tzOffsetMin(tz, now))})`;
+  $("tzLocalTime").textContent = new Date(now).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  $("tzDiffSub").textContent = tzDiffLabel(tz, now);
+
+  if (status !== lastStatus) {
+    if (lastStatus === "upcoming" && status === "active") toast("🎉 Your holiday has started! Spending unlocked.");
+    lastStatus = status;
+    renderLock(); renderSummary();
+  }
+}
+
+/* =========================================================
+   Rendering
+   ========================================================= */
+function totals() {
+  const cur = state.displayCurrency;
+  const budget = state.funds.reduce((a, f) => a + convert(f.amount, f.currency, cur), 0);
+  const spent = state.expenses.reduce((a, e) => a + convert(e.amount, e.currency, cur), 0);
+  return { budget, spent, left: budget - spent };
+}
+
+function renderSummary() {
+  const cur = state.displayCurrency, { budget, spent, left } = totals();
+  $("sBudget").textContent = fmt(budget, cur);
+  $("sSpent").textContent = fmt(spent, cur);
+  $("sLeft").textContent = fmt(left, cur);
+  $("sLeft").style.color = left < 0 ? "var(--danger)" : "var(--good)";
+  $("spendTotal").textContent = `Spent: ${fmt(spent, cur)}`;
+
+  const end = parseTripEnd(state);
+  const start = parseTripStart(state);
+  const days = end ? Math.max(1, Math.ceil((end - Math.max(Date.now(), start || 0)) / 86400000)) : null;
+  if (days && left > 0 && holidayStatus() !== "over") {
+    $("sDaily").textContent = fmt(left / days, cur);
+    $("sDailyLbl").textContent = `Per day (${days} day${days > 1 ? "s" : ""})`;
+  } else {
+    $("sDaily").textContent = "–";
+    $("sDailyLbl").textContent = end ? "Per day left" : "Per day (add end date)";
+  }
+  const pct = budget > 0 ? spent / budget * 100 : 0;
+  $("progressBar").style.width = Math.min(100, pct) + "%";
+  $("progress").classList.toggle("over", pct > 100);
+  $("progressText").textContent = budget > 0
+    ? `${pct.toFixed(1)}% of your budget used${pct > 100 ? " – over budget! 😬" : ""}`
+    : "Add some holiday money in 💰 Budget to get started.";
+
+  // Category breakdown
+  const byCat = {};
+  state.expenses.forEach(e => byCat[e.category] = (byCat[e.category] || 0) + convert(e.amount, e.currency, cur));
+  const rows = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const max = rows.length ? rows[0][1] : 0;
+  $("catBreakdown").innerHTML = rows.length ? rows.map(([k, v]) => `
+    <div class="cat-row"><span>${(CAT[k] || CAT.other)[0]}</span>
+      <span style="min-width:96px">${(CAT[k] || CAT.other)[1]}</span>
+      <div class="bar"><div style="width:${max ? v / max * 100 : 0}%"></div></div>
+      <span class="amt">${fmt(v, cur)}</span></div>`).join("")
+    : `<div class="empty">No purchases yet</div>`;
+}
+
+function renderFunds() {
+  const cur = state.displayCurrency, list = $("fundList");
+  if (!state.funds.length) { list.innerHTML = `<li class="empty" style="display:block">No money added yet</li>`; return; }
+  list.innerHTML = state.funds.map(f => `
+    <li>
+      <div class="thumb">💵</div>
+      <div class="li-main">
+        <div class="li-title">${esc(f.label || "Holiday money")}</div>
+        <div class="li-sub">${new Date(f.date).toLocaleDateString()}</div>
+      </div>
+      <div class="li-amt">${fmt(f.amount, f.currency)}
+        ${f.currency !== cur ? `<small>≈ ${fmt(convert(f.amount, f.currency, cur), cur)}</small>` : ""}</div>
+      <button class="del" data-del-fund="${f.id}" aria-label="Remove">✕</button>
+    </li>`).join("");
+}
+
+function expenseHTML(e) {
+  const cur = state.displayCurrency, d = new Date(e.date);
+  const expTz = e.tz || state.timeZone || "local";
+  const tz = validTz(expTz);
+  const [, , city] = tzInfo(expTz);
+  const photo = photoCache[e.id];
+  const dateStr = d.toLocaleDateString(undefined, { timeZone: tz, weekday: "short", day: "numeric", month: "short" });
+  const timeStr = d.toLocaleTimeString(undefined, { timeZone: tz, hour: "numeric", minute: "2-digit" });
+  const tzBadge = expTz !== (state.timeZone || "local") ? ` (${esc(city)})` : "";
+  return `<li class="exp ${selected.has(e.id) ? "selected" : ""}" data-id="${e.id}">
+    <span class="check"></span>
+    <div class="thumb" ${photo ? 'data-photo="1"' : ""}>${photo ? `<img src="${photo}" alt="">` : (CAT[e.category] || CAT.other)[0]}</div>
+    <div class="li-main">
+      <div class="li-title">${esc(e.desc)}</div>
+      <div class="li-sub">📅 ${dateStr}<span class="dot">•</span>🕒 ${timeStr}${tzBadge}${e.barcode ? '<span class="badge">▮▯▮</span>' : ""}</div>
+    </div>
+    <div class="li-amt" style="color:var(--accent-2)">−${fmt(e.amount, e.currency)}
+      ${e.currency !== cur ? `<small>≈ ${fmt(convert(e.amount, e.currency, cur), cur)}</small>` : ""}</div>
+    <div class="handle" aria-label="Drag to move">⠿</div>
+  </li>`;
+}
+
+function renderSpendList() {
+  const cur = state.displayCurrency, box = $("spendGroups");
+  if (!state.expenses.length && !state.groups.length) {
+    box.innerHTML = `<div class="card empty">🧾 Nothing bought yet.<br>Tap <b>＋</b> to record a purchase.</div>`;
+    return;
+  }
+  const sections = [{ id: "", name: "📥 Unsorted" }, ...state.groups];
+  box.innerHTML = sections.map(g => {
+    const items = state.expenses.filter(e => groupOf(e) === g.id);
+    const total = items.reduce((a, e) => a + convert(e.amount, e.currency, cur), 0);
+    return `<div class="group ${state.collapsed[g.id] ? "collapsed" : ""}" data-group="${g.id}">
+      <div class="group-head" data-group-head="${g.id}">
+        <span class="chev">▾</span>
+        <span class="g-name">${g.id ? "📁 " : ""}${esc(g.name)}</span>
+        <span class="g-meta">${items.length} • ${fmt(total, cur)}</span>
+        <button class="g-menu" data-group-menu="${g.id}" aria-label="Group options">⋯</button>
+      </div>
+      <ul class="exp-list" data-group="${g.id}">${items.map(expenseHTML).join("")}</ul>
+    </div>`;
+  }).join("");
+}
+
+function renderLock() {
+  const status = holidayStatus(), active = status === "active";
+  $("spendLocked").style.display = active ? "none" : "block";
+  $("spendLocked").innerHTML = status === "over"
+    ? "✅ Your holiday has ended. Change the end date in Settings to keep adding."
+    : "🔒 Adding purchases unlocks when your holiday starts.<br>Go to 🏠 Home and tap <b>Start holiday now</b> to begin early.";
+  $("fab").classList.toggle("disabled", !active);
+  $("startNowBtn").style.display = active ? "none" : "block";
+}
+
+function renderConverter() {
+  const amt = parseFloat($("convAmount").value) || 0, from = $("convFrom").value, to = $("convTo").value;
+  $("convResult").textContent = fmt(convert(amt, from, to), to);
+  $("convRate").textContent = `1 ${from} = ${convert(1, from, to).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${to}`;
+  $("ratesInfo").textContent = app.ratesLive && app.ratesUpdated
+    ? `Live rates • updated ${new Date(app.ratesUpdated).toLocaleString()}` : "Using approximate offline rates";
+  const base = from === "JPY" || from === "KRW" || from === "IDR" || from === "VND" ? [1000, 5000, 10000, 50000] : [10, 20, 50, 100];
+  $("convChips").innerHTML = base.map(v => `<button data-chip="${v}">${v.toLocaleString()}</button>`).join("");
+}
+
+function renderTheme() {
+  document.documentElement.setAttribute("data-theme", app.theme);
+  const dark = app.theme === "dark";
+  $("themeBtn").textContent = dark ? "☀️" : "🌙";
+  $("themeBtn3").textContent = dark ? "☀️" : "🌙";
+  $("themeBtn2").textContent = dark ? "☀️ Light" : "🌙 Dark";
+  document.querySelector('meta[name="theme-color"]').content = dark ? "#0d121c" : "#0ea5a4";
+}
+
+function renderStorageInfo() {
+  if (!state) return;
+  const n = state.expenses.filter(e => photoCache[e.id]).length;
+  $("storageInfo").textContent = `${state.expenses.length} purchases • ${n} photo${n === 1 ? "" : "s"}`;
+}
+
+function renderAll() {
+  if (!state) {
+    document.title = "Holiday Money";
+    renderTrips();
+    return;
+  }
+  $("tripTitle").textContent = state.tripName || "Holiday Money";
+  document.title = state.tripName ? `${state.tripName} – Holiday Money` : "Holiday Money";
+  renderSummary(); renderFunds(); renderSpendList(); renderLock(); renderConverter(); renderStorageInfo();
+}
+
+/* =========================================================
+   Trips home screen (multi-trip)
+   ========================================================= */
+function fmtDur(ms) {
+  const s = Math.floor(Math.max(0, ms) / 1000);
+  const d = Math.floor(s / 86400);
+  const h = pad(Math.floor(s % 86400 / 3600));
+  const m = pad(Math.floor(s % 3600 / 60));
+  const sec = pad(s % 60);
+  return `${d}d ${h}h ${m}m ${sec}s`;
+}
+
+function tripTimerInfo(t, now = Date.now()) {
+  const status = holidayStatus(now, t);
+  const start = parseTripStart(t);
+  const end = parseTripEnd(t);
+  const began = start && start < now ? start : (t.startedAt || now);
+  if (status === "active") {
+    const up = `⏱️ On trip: ${fmtDur(now - began)}`;
+    const down = end ? ` • ⏳ ${fmtDur(end - now)} left` : "";
+    return { cls: "live", badge: "🌴 In progress", text: up + down };
+  }
+  if (status === "upcoming") {
+    return { cls: "pending", badge: "⏳ Pending", text: `⏳ Starts in ${fmtDur(start - now)}` };
+  }
+  if (status === "unset") {
+    return { cls: "pending", badge: "⏳ Pending", text: "🗓️ Tap to set start date" };
+  }
+  const lasted = end && began < end ? ` • Lasted ${fmtDur(end - began)}` : "";
+  return { cls: "ended", badge: "✅ Ended", text: `🏁 Trip ended${lasted}` };
+}
+
+function tripTotals(t) {
+  const cur = t.displayCurrency || "AUD";
+  const budget = (t.funds || []).reduce((a, f) => a + convert(f.amount, f.currency, cur), 0);
+  const spent = (t.expenses || []).reduce((a, e) => a + convert(e.amount, e.currency, cur), 0);
+  return { cur, budget, spent, left: budget - spent };
+}
+
+function tripTzLine(t, now = Date.now()) {
+  const tz = t.timeZone || "local";
+  const [, label, city] = tzInfo(tz);
+  const flag = label.split(" ")[0];
+  const timeThere = new Date(now).toLocaleTimeString(undefined, { timeZone: validTz(tz), hour: "numeric", minute: "2-digit" });
+  const diff = tzOffsetMin(tz, now) - tzOffsetMin("local", now);
+  const diffTag = diff === 0 ? "same time" : `${diff > 0 ? "+" : "−"}${Math.round(Math.abs(diff) / 6) / 10}h`;
+  return `${flag} ${city}: ${timeThere} (${diffTag})`;
+}
+
+function tripCardHTML(t, now) {
+  const info = tripTimerInfo(t, now);
+  const { cur, budget, spent, left } = tripTotals(t);
+  const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+  const tz = validTz(t.timeZone);
+  const fmtDate = ms => ms ? new Date(ms).toLocaleDateString(undefined, { timeZone: tz, day: "numeric", month: "short", year: "numeric" }) : "";
+  const sMs = parseTripStart(t), eMs = parseTripEnd(t);
+  const dates = sMs ? `${fmtDate(sMs)}${eMs ? " → " + fmtDate(eMs) : ""}` : "No dates set yet";
+  return `<div class="trip-card ${info.cls}" data-trip-id="${t.id}">
+    <div class="trip-top">
+      <div class="trip-name">${esc(t.tripName || "Untitled trip")}</div>
+      <span class="trip-status" data-trip-badge="${t.id}">${info.badge}</span>
+      <button class="trip-more" data-trip-menu="${t.id}" aria-label="Trip options">⋯</button>
+    </div>
+    <div class="trip-dates">🗓️ ${dates} • <span data-trip-tz="${t.id}">${esc(tripTzLine(t, now))}</span></div>
+    <div class="trip-timer" data-trip-timer="${t.id}">${info.text}</div>
+    <div class="trip-money">
+      <span>Budget: <b>${fmt(budget, cur)}</b></span>
+      <span>Spent: <b>${fmt(spent, cur)}</b></span>
+      <span>Left: <b>${fmt(left, cur)}</b></span>
+    </div>
+    <div class="trip-bar"><div style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+let lastTripsSig = "";
+function renderTrips() {
+  const now = Date.now();
+  const list = $("tripList");
+  const n = app.trips.length;
+  $("tripsSub").textContent = n ? `${n} trip${n === 1 ? "" : "s"}` : "Create a trip to begin";
+  if (!n) {
+    list.innerHTML = `<div class="card empty">✈️ No trips yet.<br>Tap the <b>＋</b> button below to create your first holiday!</div>`;
+    lastTripsSig = "";
+    return;
+  }
+  const live = [], pending = [], ended = [];
+  app.trips.forEach(t => {
+    const st = holidayStatus(now, t);
+    if (st === "active") live.push(t);
+    else if (st === "over") ended.push(t);
+    else pending.push(t);
+  });
+  let html = "";
+  if (live.length) html += `<div class="trip-section">🟢 In progress</div>` + live.map(t => tripCardHTML(t, now)).join("");
+  if (pending.length) html += `<div class="trip-section">🟠 Pending</div>` + pending.map(t => tripCardHTML(t, now)).join("");
+  if (ended.length) html += `<div class="trip-section">⚪ Ended</div>` + ended.map(t => tripCardHTML(t, now)).join("");
+  list.innerHTML = html;
+  lastTripsSig = app.trips.map(t => t.id + ":" + holidayStatus(now, t)).join("|");
+}
+
+function tickTrips() {
+  const now = Date.now();
+  const sig = app.trips.map(t => t.id + ":" + holidayStatus(now, t)).join("|");
+  if (sig !== lastTripsSig) { renderTrips(); return; }
+  app.trips.forEach(t => {
+    const el = document.querySelector(`[data-trip-timer="${t.id}"]`);
+    if (el) el.textContent = tripTimerInfo(t, now).text;
+    const tzEl = document.querySelector(`[data-trip-tz="${t.id}"]`);
+    if (tzEl) tzEl.textContent = tripTzLine(t, now);
+  });
+}
+
+function openTrip(id) {
+  const t = app.trips.find(x => x.id === id);
+  if (!t) return;
+  state = t;
+  app.currentTripId = id;
+  save();
+  document.body.classList.add("in-trip");
+  fillCurrencySelect($("displayCurrency"), state.displayCurrency, true);
+  fillCurrencySelect($("settingsCurrency"), state.displayCurrency);
+  fillCurrencySelect($("fundCurrency"), state.displayCurrency);
+  fillCurrencySelect($("fCurrency"), state.spendCurrency);
+  fillCurrencySelect($("convFrom"), state.convFrom);
+  fillCurrencySelect($("convTo"), state.convTo);
+  fillTzSelect($("homeTzSelect"), state.timeZone || "local", true);
+  fillTzSelect($("tripTz"), state.timeZone || "local");
+  fillTzSelect($("startTz"), state.startTz || state.timeZone || "local");
+  fillTzSelect($("endTz"), state.endTz || state.timeZone || "local");
+  $("tripName").value = state.tripName;
+  $("startDate").value = state.startDate;
+  $("endDate").value = state.endDate;
+  renderTzHint(state.timeZone, state.startDate, state.startTz || state.timeZone, state.endDate, state.endTz || state.timeZone, $("settingsTzHint"));
+  lastStatus = null;
+  showTab(state.tab || "home");
+  renderAll();
+  tick();
+}
+
+function closeTrip() {
+  setSelectMode(false);
+  state = null;
+  app.currentTripId = null;
+  save();
+  document.body.classList.remove("in-trip");
+  document.body.dataset.tab = "";
+  delete document.body.dataset.status;
+  renderAll();
+  window.scrollTo(0, 0);
+}
+
+function deleteTrip(id) {
+  const t = app.trips.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`Delete "${t.tripName || "Untitled trip"}" and all its purchases?`)) return;
+  (t.expenses || []).forEach(e => { delete photoCache[e.id]; PhotoDB.del(e.id); });
+  app.trips = app.trips.filter(x => x.id !== id);
+  if (state && state.id === id) { state = null; app.currentTripId = null; document.body.classList.remove("in-trip"); document.body.dataset.tab = ""; }
+  save(); renderAll(); toast("🗑 Trip deleted");
+}
+
+function tripMenu(id) {
+  const t = app.trips.find(x => x.id === id);
+  if (!t) return;
+  const st = holidayStatus(Date.now(), t);
+  const opts = [
+    { label: "📂 Open trip", onClick: () => openTrip(id) },
+    { label: "✏️ Rename trip", onClick: () => promptSheet("Rename trip", "Trip name", t.tripName, name => { t.tripName = name; save(); renderTrips(); }) }
+  ];
+  if (st !== "active") {
+    opts.push({ label: "▶️ Start trip now", onClick: () => {
+      t.startedManually = true; t.startedAt = Date.now();
+      const endMs = parseTripEnd(t);
+      if (endMs && endMs <= Date.now()) t.endDate = "";
+      save(); renderTrips(); toast("🎉 Trip started!");
+    } });
+  }
+  if (st === "active") {
+    opts.push({ label: "🏁 End trip now", onClick: () => {
+      t.endTz = t.timeZone || "local";
+      t.endDate = toDateTimeLocal(Date.now(), t.endTz);
+      save(); renderTrips(); toast("✅ Trip marked as ended");
+    } });
+  }
+  opts.push({ label: "🗑 Delete trip", danger: true, onClick: () => deleteTrip(id) });
+  actionSheet(t.tripName || "Untitled trip", opts);
+}
+
+/* =========================================================
+   Sheets (bottom pop-ups)
+   ========================================================= */
+function openSheet(id) {
+  document.querySelectorAll(".sheet.open").forEach(s => s.classList.remove("open"));
+  $(id).classList.add("open"); $("backdrop").classList.add("open");
+}
+function closeSheets() {
+  document.querySelectorAll(".sheet.open").forEach(s => s.classList.remove("open"));
+  $("backdrop").classList.remove("open");
+}
+$("backdrop").onclick = closeSheets;
+
+function actionSheet(title, options) {
+  $("actionTitle").textContent = title;
+  const body = $("actionBody"); body.innerHTML = "";
+  options.forEach(o => {
+    const b = document.createElement("button");
+    b.className = "opt" + (o.danger ? " danger" : "") + (o.current ? " current" : "");
+    b.textContent = o.label;
+    b.onclick = () => { closeSheets(); o.onClick(); };
+    body.appendChild(b);
+  });
+  const cancel = document.createElement("button");
+  cancel.className = "opt"; cancel.style.textAlign = "center"; cancel.textContent = "Cancel";
+  cancel.onclick = closeSheets; body.appendChild(cancel);
+  openSheet("actionSheet");
+}
+
+function promptSheet(title, placeholder, initial, onOk, okLabel = "Save") {
+  $("actionTitle").textContent = title;
+  $("actionBody").innerHTML = `<input id="promptInput" placeholder="${esc(placeholder)}" value="${esc(initial)}" enterkeyhint="done">
+    <button class="btn" id="promptOk">${esc(okLabel)}</button>`;
+  openSheet("actionSheet");
+  const inp = $("promptInput");
+  setTimeout(() => inp.focus(), 300);
+  const ok = () => { const v = inp.value.trim(); if (!v) return toast("Please type something"); closeSheets(); onOk(v); };
+  $("promptOk").onclick = ok;
+  inp.onkeydown = e => { if (e.key === "Enter") ok(); };
+}
+
+/* =========================================================
+   Purchase sheet (add / edit)
+   ========================================================= */
+let editingId = null, sheetPhoto, sheetBarcode = null;
+
+function fillGroupSelect(value) {
+  $("fGroup").innerHTML = `<option value="">📥 Unsorted</option>` +
+    state.groups.map(g => `<option value="${g.id}">📁 ${esc(g.name)}</option>`).join("") +
+    `<option value="__new">＋ New group…</option>`;
+  $("fGroup").value = groupExists(value) ? value : "";
+}
+
+function updateExpTzHint() {
+  if (!state) return;
+  const tz = $("fTz").value || state.timeZone || "local";
+  const [, , city] = tzInfo(tz);
+  $("fDateLbl").textContent = `Date (${city})`;
+  $("fTimeLbl").textContent = `Time (${city})`;
+  const ms = fromInputs($("fDate").value, $("fTime").value, tz);
+  const tripTz = state.timeZone || "local";
+  const [, , tripCity] = tzInfo(tripTz);
+  const fmtAt = z => new Date(ms).toLocaleString(undefined, { timeZone: validTz(z), weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const parts = [];
+  if (tz !== tripTz) parts.push(`<b>${esc(tripCity)} time:</b> ${fmtAt(tripTz)}`);
+  if (tz !== "local") parts.push(`<b>Your device time:</b> ${fmtAt("local")}`);
+  $("fTzHint").innerHTML = parts.length ? parts.join(" • ") : `Recorded in <b>${esc(city)}</b> time`;
+}
+
+function openExpenseSheet(id = null) {
+  const e = id ? state.expenses.find(x => x.id === id) : null;
+  if (!e && holidayStatus() !== "active") {
+    toast(holidayStatus() === "over" ? "Your holiday has ended" : "🔒 Start your holiday first (Home tab)");
+    return;
+  }
+  editingId = e ? e.id : null;
+  $("expSheetTitle").textContent = e ? "Edit purchase" : "New purchase";
+  $("fDesc").value = e ? e.desc : "";
+  $("fAmount").value = e ? e.amount : "";
+  $("fCurrency").value = e ? e.currency : state.spendCurrency;
+  $("fCat").value = e ? e.category : "food";
+  const ts = e ? e.date : Date.now();
+  const expTz = e ? (e.tz || state.timeZone || "local") : (state.timeZone || "local");
+  fillTzSelect($("fTz"), expTz);
+  $("fDate").value = toDateInput(ts, expTz);
+  $("fTime").value = toTimeInput(ts, expTz);
+  updateExpTzHint();
+  fillGroupSelect(e ? e.groupId : state.lastGroup);
+  sheetBarcode = e ? e.barcode || null : null;
+  sheetPhoto = undefined; // undefined = unchanged
+  $("fDelete").style.display = e ? "block" : "none";
+  renderSheetExtras(); updateConverted();
+  openSheet("expSheet");
+}
+
+$("fTz").onchange = updateExpTzHint;
+$("fDate").onchange = updateExpTzHint;
+$("fTime").onchange = updateExpTzHint;
+
+function renderSheetExtras() {
+  $("barcodeTag").innerHTML = sheetBarcode
+    ? `<div class="tag">▮▯▮ Barcode ${esc(sheetBarcode)}<button class="x" id="clearBarcode">✕</button></div>` : "";
+  if (sheetBarcode) $("clearBarcode").onclick = () => { sheetBarcode = null; renderSheetExtras(); };
+  const src = sheetPhoto !== undefined ? sheetPhoto : (editingId ? photoCache[editingId] : null);
+  $("photoPreview").innerHTML = src ? `<div class="photo-preview"><img src="${src}" alt=""><button id="removePhoto">✕ Remove</button></div>` : "";
+  if (src) $("removePhoto").onclick = () => { sheetPhoto = null; renderSheetExtras(); };
+  $("photoBtn").innerHTML = `<span>📸</span>${src ? "Retake photo" : "Take photo"}`;
+}
+
+function updateConverted() {
+  const amt = parseFloat($("fAmount").value), from = $("fCurrency").value, to = state.displayCurrency;
+  $("fConverted").textContent = amt > 0 && from !== to ? `≈ ${fmt(convert(amt, from, to), to)}` : "";
+}
+$("fAmount").oninput = updateConverted;
+$("fCurrency").onchange = updateConverted;
+
+$("fGroup").onchange = e => {
+  if (e.target.value !== "__new") return;
+  const name = prompt("New group name (e.g. Tokyo, Day 1, Souvenirs)");
+  if (name && name.trim()) {
+    const g = { id: uid(), name: name.trim() };
+    state.groups.push(g); save();
+    fillGroupSelect(g.id);
+  } else fillGroupSelect("");
+};
+
+$("fSave").onclick = async () => {
+  const desc = $("fDesc").value.trim(), amount = parseFloat($("fAmount").value);
+  if (!desc) return toast("What did you buy?");
+  if (!(amount > 0)) return toast("Please enter an amount");
+  const chosenTz = $("fTz").value || state.timeZone || "local";
+  const data = {
+    desc, amount, currency: $("fCurrency").value, category: $("fCat").value,
+    date: fromInputs($("fDate").value, $("fTime").value, chosenTz),
+    tz: chosenTz,
+    groupId: $("fGroup").value === "__new" ? "" : $("fGroup").value, barcode: sheetBarcode
+  };
+  let e;
+  if (editingId) { e = state.expenses.find(x => x.id === editingId); Object.assign(e, data); }
+  else { e = { id: uid(), ...data }; state.expenses.unshift(e); }
+
+  if (sheetPhoto !== undefined) {
+    if (sheetPhoto) {
+      photoCache[e.id] = sheetPhoto;
+      try { await PhotoDB.put(e.id, sheetPhoto); } catch { toast("⚠️ Photo couldn't be saved permanently"); }
+    } else { delete photoCache[e.id]; PhotoDB.del(e.id); }
+  }
+  if (sheetBarcode) app.barcodes[sheetBarcode] = { desc, amount, currency: data.currency, category: data.category };
+  state.spendCurrency = data.currency; state.lastGroup = data.groupId;
+  save(); closeSheets(); renderAll();
+  const { left } = totals();
+  toast(editingId ? "✏️ Purchase updated" : (left < 0 ? "⚠️ Saved – you're over budget!" : `✅ Saved – ${fmt(left, state.displayCurrency)} left`));
+};
+
+$("fDelete").onclick = () => {
+  if (!editingId || !confirm("Delete this purchase?")) return;
+  deleteExpenses([editingId]); closeSheets();
+};
+$("fDesc").onkeydown = e => { if (e.key === "Enter") $("fAmount").focus(); };
+
+function deleteExpenses(ids) {
+  const set = new Set(ids);
+  state.expenses = state.expenses.filter(e => !set.has(e.id));
+  ids.forEach(id => { delete photoCache[id]; PhotoDB.del(id); selected.delete(id); });
+  save(); renderAll();
+}
+
+/* =========================================================
+   Photos – take / choose, then shrink so storage stays small
+   ========================================================= */
+function compressImage(file, max = 1024, quality = 0.72) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const s = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("bad image")); };
+    img.src = url;
+  });
+}
+$("photoBtn").onclick = () => $("photoInput").click();
+$("photoInput").onchange = async e => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  try { sheetPhoto = await compressImage(file); renderSheetExtras(); toast("📸 Photo added"); }
+  catch { toast("Couldn't read that photo"); }
+};
+$("photoViewer").onclick = () => $("photoViewer").classList.remove("open");
+function viewPhoto(src) { $("photoViewer").querySelector("img").src = src; $("photoViewer").classList.add("open"); }
+
+/* =========================================================
+   Barcode scanner (html5-qrcode, loaded only when needed)
+   ========================================================= */
+let scanner = null, scanLib = null, scanHandled = false;
+function loadScanLib() {
+  if (window.Html5Qrcode) return Promise.resolve();
+  if (!scanLib) scanLib = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
+    s.onload = res;
+    s.onerror = () => { scanLib = null; rej(new Error("offline")); };
+    document.head.appendChild(s);
+  });
+  return scanLib;
+}
+function scannerConfig() {
+  const F = Html5QrcodeSupportedFormats;
+  return {
+    verbose: false,
+    formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE],
+    useBarCodeDetectorIfSupported: true,
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+  };
+}
+async function openScanner() {
+  scanHandled = false;
+  $("scanner").classList.add("open");
+  $("scanMsg").textContent = "Starting camera…";
+  try {
+    await loadScanLib();
+    if (!scanner) scanner = new Html5Qrcode("reader", scannerConfig());
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 12, qrbox: (w, h) => ({ width: Math.max(60, Math.floor(Math.min(w * .85, 340))), height: Math.max(60, Math.floor(Math.min(h * .45, 170))) }) },
+      onScanSuccess, () => {}
+    );
+    $("scanMsg").textContent = "Point the camera at the barcode 📦";
+  } catch (err) {
+    $("scanMsg").innerHTML = err.message === "offline"
+      ? "⚠️ The scanner needs internet the first time. You can still type the code."
+      : "⚠️ Camera not available. Allow camera access, or open this app from an <b>https://</b> web address.<br>You can also use <b>Scan from photo</b>.";
+  }
+}
+async function stopScanner() {
+  try { if (scanner && scanner.isScanning) await scanner.stop(); } catch {}
+}
+async function closeScanner() { await stopScanner(); $("scanner").classList.remove("open"); }
+async function onScanSuccess(text) {
+  if (scanHandled) return;
+  scanHandled = true;
+  navigator.vibrate?.(60);
+  await closeScanner();
+  handleBarcode(text.trim());
+}
+$("scanBtn").onclick = openScanner;
+$("scanClose").onclick = closeScanner;
+$("scanManual").onclick = async () => {
+  await closeScanner();
+  const code = prompt("Type the barcode number");
+  if (code && code.trim()) handleBarcode(code.trim());
+};
+$("scanFromPhoto").onclick = async () => { await stopScanner(); $("barcodeFileInput").click(); };
+$("barcodeFileInput").onchange = async e => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  $("scanMsg").textContent = "Reading barcode from photo…";
+  try {
+    await loadScanLib();
+    const fileScanner = new Html5Qrcode("hiddenReader", scannerConfig());
+    const text = await fileScanner.scanFile(file, false);
+    $("scanner").classList.remove("open");
+    handleBarcode(text.trim());
+  } catch {
+    $("scanMsg").textContent = "😕 No barcode found in that photo. Try again closer and in good light.";
+  }
+};
+
+async function handleBarcode(code) {
+  sheetBarcode = code;
+  renderSheetExtras();
+  const known = app.barcodes[code];
+  if (known) {
+    $("fDesc").value = known.desc; $("fAmount").value = known.amount;
+    $("fCurrency").value = known.currency; $("fCat").value = known.category;
+    updateConverted();
+    return toast("✅ Found it – you've bought this before");
+  }
+  toast("🔎 Looking up product…");
+  try {
+    const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 7000);
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,brands`, { signal: ctrl.signal });
+    const data = await r.json();
+    const p = data.product || {};
+    const name = [p.brands && p.brands.split(",")[0], p.product_name].filter(Boolean).join(" – ");
+    if (data.status === 1 && name) {
+      $("fDesc").value = name; $("fCat").value = "food";
+      toast("✅ Product found! Just add the price");
+      $("fAmount").focus();
+      return;
+    }
+  } catch {}
+  toast("New barcode – type the item name. It'll be remembered next time!");
+  $("fDesc").focus();
+}
+
+/* =========================================================
+   Spending list: tap, select, groups, drag & drop
+   ========================================================= */
+let selectMode = false;
+const selected = new Set();
+
+function setSelectMode(on) {
+  selectMode = on; if (!on) selected.clear();
+  document.body.classList.toggle("select-mode", on);
+  $("selectBtn").classList.toggle("on", on);
+  $("selectBtn").textContent = on ? "Cancel" : "Select";
+  updateSelCount(); renderSpendList();
+}
+function updateSelCount() { $("selCount").textContent = `${selected.size} selected`; }
+$("selectBtn").onclick = () => setSelectMode(!selectMode);
+$("selDone").onclick = () => setSelectMode(false);
+$("selDelete").onclick = () => {
+  if (!selected.size) return toast("Select some purchases first");
+  if (!confirm(`Delete ${selected.size} purchase(s)?`)) return;
+  deleteExpenses([...selected]); setSelectMode(false);
+};
+$("selMove").onclick = () => {
+  if (!selected.size) return toast("Select some purchases first");
+  const move = gid => {
+    state.expenses.forEach(e => { if (selected.has(e.id)) e.groupId = gid; });
+    if (gid) state.collapsed[gid] = false;
+    save(); setSelectMode(false); renderAll(); toast("📁 Moved");
+  };
+  actionSheet(`Move ${selected.size} purchase(s) to…`, [
+    { label: "＋ New group…", onClick: () => promptSheet("New group", "e.g. Tokyo, Day 1, Souvenirs", "", name => {
+        const g = { id: uid(), name }; state.groups.push(g); move(g.id);
+      }, "Create & move") },
+    { label: "📥 Unsorted", onClick: () => move("") },
+    ...state.groups.map(g => ({ label: "📁 " + g.name, onClick: () => move(g.id) }))
+  ]);
+};
+
+$("newGroupBtn").onclick = () => promptSheet("New group", "e.g. Tokyo, Day 1, Souvenirs", "", name => {
+  state.groups.push({ id: uid(), name }); save(); renderAll(); toast("📁 Group created – drag purchases into it");
+}, "Create group");
+
+function groupMenu(gid) {
+  const g = state.groups.find(x => x.id === gid);
+  const sortBy = (dir) => {
+    const inGroup = state.expenses.filter(e => groupOf(e) === gid).sort((a, b) => dir * (a.date - b.date));
+    let i = 0;
+    state.expenses = state.expenses.map(e => groupOf(e) === gid ? inGroup[i++] : e);
+    save(); renderAll();
+  };
+  const opts = [
+    { label: "🕒 Sort by time (oldest first)", onClick: () => sortBy(1) },
+    { label: "🕒 Sort by time (newest first)", onClick: () => sortBy(-1) }
+  ];
+  if (g) {
+    const idx = state.groups.indexOf(g);
+    opts.unshift({ label: "✏️ Rename group", onClick: () => promptSheet("Rename group", "Group name", g.name, name => { g.name = name; save(); renderAll(); }) });
+    if (idx > 0) opts.push({ label: "⬆️ Move group up", onClick: () => { state.groups.splice(idx, 1); state.groups.splice(idx - 1, 0, g); save(); renderAll(); } });
+    if (idx < state.groups.length - 1) opts.push({ label: "⬇️ Move group down", onClick: () => { state.groups.splice(idx, 1); state.groups.splice(idx + 1, 0, g); save(); renderAll(); } });
+    opts.push({ label: "🗑 Delete group (keep purchases)", danger: true, onClick: () => {
+      state.expenses.forEach(e => { if (e.groupId === gid) e.groupId = ""; });
+      state.groups.splice(idx, 1); save(); renderAll(); toast("Group deleted – purchases moved to Unsorted");
+    } });
+  }
+  actionSheet(g ? g.name : "Unsorted", opts);
+}
+
+$("spendGroups").addEventListener("click", e => {
+  if (e.target.closest(".handle")) return;
+  const menu = e.target.closest("[data-group-menu]");
+  if (menu) return groupMenu(menu.dataset.groupMenu);
+  const head = e.target.closest("[data-group-head]");
+  if (head) {
+    const gid = head.dataset.groupHead;
+    state.collapsed[gid] = !state.collapsed[gid]; save();
+    head.parentElement.classList.toggle("collapsed", state.collapsed[gid]);
+    return;
+  }
+  const li = e.target.closest("li.exp");
+  if (!li) return;
+  const id = li.dataset.id;
+  if (selectMode) {
+    selected.has(id) ? selected.delete(id) : selected.add(id);
+    li.classList.toggle("selected", selected.has(id)); updateSelCount();
+    return;
+  }
+  if (e.target.closest(".thumb[data-photo]")) return viewPhoto(photoCache[id]);
+  openExpenseSheet(id);
+});
+
+/* ---- Drag & drop (pointer events: works with finger and mouse) ---- */
+let drag = null;
+$("spendGroups").addEventListener("pointerdown", e => {
+  const handle = e.target.closest(".handle");
+  if (!handle || e.button > 0) return;
+  startDrag(e, handle.closest("li.exp"));
+});
+
+function startDrag(e, li) {
+  e.preventDefault();
+  const r = li.getBoundingClientRect();
+  const ph = document.createElement("li");
+  ph.className = "placeholder"; ph.style.height = r.height + "px";
+  li.after(ph);
+  Object.assign(li.style, { width: r.width + "px", left: r.left + "px", top: r.top + "px" });
+  li.classList.add("dragging");
+  document.body.classList.add("is-dragging");
+  drag = { li, ph, offY: e.clientY - r.top, x: e.clientX, y: e.clientY };
+  navigator.vibrate?.(15);
+  window.addEventListener("pointermove", onDragMove, { passive: false });
+  window.addEventListener("pointerup", endDrag);
+  window.addEventListener("pointercancel", endDrag);
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function onDragMove(e) {
+  if (!drag) return;
+  e.preventDefault();
+  drag.x = e.clientX; drag.y = e.clientY;
+  drag.li.style.top = (e.clientY - drag.offY) + "px";
+  hitTest();
+}
+
+function hitTest() {
+  const el = document.elementFromPoint(drag.x, drag.y);
+  const group = el && el.closest(".group");
+  if (!group) return;
+  document.querySelectorAll(".group.drop-target").forEach(g => g !== group && g.classList.remove("drop-target"));
+  group.classList.add("drop-target");
+  const ul = group.querySelector("ul.exp-list");
+  if (group.classList.contains("collapsed")) { if (drag.ph.parentNode !== ul) ul.prepend(drag.ph); return; }
+  const items = [...ul.querySelectorAll(":scope > li.exp:not(.dragging)")];
+  const before = items.find(it => { const r = it.getBoundingClientRect(); return drag.y < r.top + r.height / 2; });
+  if (before) { if (before.previousElementSibling !== drag.ph) before.before(drag.ph); }
+  else if (ul.lastElementChild !== drag.ph) ul.appendChild(drag.ph);
+}
+
+function autoScroll() {
+  if (!drag) return;
+  const topEdge = 120, bottomEdge = innerHeight - 150;
+  let dy = 0;
+  if (drag.y < topEdge) dy = -Math.ceil((topEdge - drag.y) / 6);
+  else if (drag.y > bottomEdge) dy = Math.ceil((drag.y - bottomEdge) / 6);
+  if (dy) { window.scrollBy(0, dy); hitTest(); }
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function endDrag() {
+  if (!drag) return;
+  cancelAnimationFrame(drag.raf);
+  window.removeEventListener("pointermove", onDragMove);
+  window.removeEventListener("pointerup", endDrag);
+  window.removeEventListener("pointercancel", endDrag);
+  const { li, ph } = drag; drag = null;
+  li.classList.remove("dragging"); li.style.cssText = "";
+  ph.replaceWith(li);
+  document.body.classList.remove("is-dragging");
+  document.querySelectorAll(".group.drop-target").forEach(g => g.classList.remove("drop-target"));
+
+  // Save the new order + groups exactly as they now appear on screen
+  const byId = Object.fromEntries(state.expenses.map(e => [e.id, e]));
+  const ordered = [];
+  document.querySelectorAll("#spendGroups ul.exp-list").forEach(ul => {
+    ul.querySelectorAll(":scope > li.exp").forEach(item => {
+      const exp = byId[item.dataset.id];
+      if (exp) { exp.groupId = ul.dataset.group; ordered.push(exp); delete byId[item.dataset.id]; }
+    });
+  });
+  state.expenses = ordered.concat(Object.values(byId));
+  save(); renderAll();
+}
+
+/* =========================================================
+   Live exchange rates
+   ========================================================= */
+async function fetchRates(force = false) {
+  if (!force && app.ratesLive && Date.now() - app.ratesUpdated < 12 * 3600 * 1000) return;
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD");
+    const data = await res.json();
+    if (data.result !== "success") throw new Error();
+    app.rates = { ...FALLBACK_RATES, ...data.rates };
+    app.ratesUpdated = Date.now(); app.ratesLive = true;
+    save(); renderAll();
+    if (force) toast("💱 Exchange rates updated");
+  } catch {
+    if (force) toast("⚠️ Couldn't get live rates – using saved rates");
+    if (state) renderConverter();
+  }
+}
+
+/* =========================================================
+   Other events
+   ========================================================= */
+const toggleTheme = () => { app.theme = app.theme === "dark" ? "light" : "dark"; save(); renderTheme(); };
+$("themeBtn").onclick = toggleTheme;
+$("themeBtn2").onclick = toggleTheme;
+$("themeBtn3").onclick = toggleTheme;
+
+$("backBtn").onclick = closeTrip;
+
+$("tripList").addEventListener("click", e => {
+  const menu = e.target.closest("[data-trip-menu]");
+  if (menu) { e.stopPropagation(); return tripMenu(menu.dataset.tripMenu); }
+  const card = e.target.closest("[data-trip-id]");
+  if (card) openTrip(card.dataset.tripId);
+});
+
+let ntTzManual = false, ntStartTzManual = false, ntEndTzManual = false;
+const updateNtHint = () => renderTzHint($("ntTz").value, $("ntStart").value, $("ntStartTz").value, $("ntEnd").value, $("ntEndTz").value, $("ntTzHint"));
+
+$("newTripBtn").onclick = () => {
+  ntTzManual = false; ntStartTzManual = false; ntEndTzManual = false;
+  $("ntName").value = "";
+  $("ntStart").value = "";
+  $("ntEnd").value = "";
+  fillCurrencySelect($("ntHome"), "AUD");
+  fillCurrencySelect($("ntLocal"), "JPY");
+  const defTz = CURRENCY_TZ["JPY"] || "local";
+  fillTzSelect($("ntTz"), defTz);
+  fillTzSelect($("ntStartTz"), defTz);
+  fillTzSelect($("ntEndTz"), defTz);
+  updateNtHint();
+  openSheet("tripSheet");
+  setTimeout(() => $("ntName").focus(), 250);
+};
+
+$("ntLocal").onchange = e => {
+  const guessed = CURRENCY_TZ[e.target.value];
+  if (!ntTzManual && guessed) {
+    $("ntTz").value = guessed;
+    if (!ntStartTzManual) $("ntStartTz").value = guessed;
+    if (!ntEndTzManual) $("ntEndTz").value = guessed;
+    updateNtHint();
+  }
+};
+$("ntTz").onchange = () => {
+  ntTzManual = true;
+  if (!ntStartTzManual) $("ntStartTz").value = $("ntTz").value;
+  if (!ntEndTzManual) $("ntEndTz").value = $("ntTz").value;
+  updateNtHint();
+};
+$("ntStartTz").onchange = () => { ntStartTzManual = true; updateNtHint(); };
+$("ntEndTz").onchange = () => { ntEndTzManual = true; updateNtHint(); };
+$("ntStart").onchange = updateNtHint;
+$("ntEnd").onchange = updateNtHint;
+
+$("ntCreate").onclick = () => {
+  const name = $("ntName").value.trim();
+  if (!name) return toast("Please enter a trip name");
+  const tz = $("ntTz").value || "local";
+  const t = {
+    ...defaultTrip(),
+    tripName: name,
+    timeZone: tz,
+    startDate: $("ntStart").value,
+    startTz: $("ntStartTz").value || tz,
+    endDate: $("ntEnd").value,
+    endTz: $("ntEndTz").value || tz,
+    displayCurrency: $("ntHome").value,
+    spendCurrency: $("ntLocal").value,
+    convFrom: $("ntHome").value,
+    convTo: $("ntLocal").value
+  };
+  app.trips.unshift(t);
+  save();
+  closeSheets();
+  openTrip(t.id);
+  toast("✈️ Trip created!");
+};
+$("ntName").onkeydown = e => { if (e.key === "Enter") $("ntStart").focus(); };
+
+function setDisplayCurrency(cur) {
+  if (!state) return;
+  state.displayCurrency = cur; save();
+  $("displayCurrency").value = cur; $("settingsCurrency").value = cur;
+  renderAll(); toast(`Showing totals in ${cur}`);
+}
+$("displayCurrency").onchange = e => setDisplayCurrency(e.target.value);
+$("settingsCurrency").onchange = e => setDisplayCurrency(e.target.value);
+
+$("tripName").oninput = e => { if (!state) return; state.tripName = e.target.value; save(); $("tripTitle").textContent = state.tripName || "Holiday Money"; };
+
+function refreshSettingsTzUI() {
+  if (!state) return;
+  renderTzHint(state.timeZone, state.startDate, state.startTz || state.timeZone, state.endDate, state.endTz || state.timeZone, $("settingsTzHint"));
+  lastStatus = null;
+  renderAll();
+  tick();
+}
+
+function setDestinationTz(newTz) {
+  if (!state) return;
+  const prevTz = state.timeZone || "local";
+  state.timeZone = newTz;
+  if (!state.startTz || state.startTz === prevTz) {
+    state.startTz = newTz;
+    $("startTz").value = newTz;
+  }
+  if (!state.endTz || state.endTz === prevTz) {
+    state.endTz = newTz;
+    $("endTz").value = newTz;
+  }
+  $("tripTz").value = newTz;
+  $("homeTzSelect").value = newTz;
+  const startMs = parseTripStart(state);
+  if (startMs && startMs > Date.now()) state.startedManually = false;
+  save();
+  refreshSettingsTzUI();
+  toast(`🌍 Destination clock set to ${tzInfo(state.timeZone)[2]}`);
+}
+
+$("tripTz").onchange = e => setDestinationTz(e.target.value);
+$("homeTzSelect").onchange = e => setDestinationTz(e.target.value);
+
+$("startTz").onchange = e => {
+  if (!state) return;
+  state.startTz = e.target.value;
+  const startMs = parseTripStart(state);
+  if (startMs && startMs > Date.now()) state.startedManually = false;
+  save();
+  refreshSettingsTzUI();
+  toast(`🛫 Start time zone: ${tzInfo(state.startTz)[2]} — clock adjusted`);
+};
+
+$("endTz").onchange = e => {
+  if (!state) return;
+  state.endTz = e.target.value;
+  save();
+  refreshSettingsTzUI();
+  toast(`🛬 End time zone: ${tzInfo(state.endTz)[2]} — clock adjusted`);
+};
+
+$("startDate").onchange = e => {
+  if (!state) return;
+  state.startDate = e.target.value;
+  const startMs = parseTripStart(state);
+  if (startMs && startMs > Date.now()) state.startedManually = false;
+  save();
+  refreshSettingsTzUI();
+};
+$("endDate").onchange = e => {
+  if (!state) return;
+  state.endDate = e.target.value;
+  save();
+  refreshSettingsTzUI();
+};
+$("startNowBtn").onclick = () => {
+  if (!state) return;
+  state.startedManually = true; state.startedAt = Date.now();
+  const endMs = parseTripEnd(state);
+  if (endMs && endMs <= Date.now()) { state.endDate = ""; $("endDate").value = ""; }
+  save(); lastStatus = null; tick();
+  toast("🎉 Holiday started! Spending unlocked.");
+};
+
+$("addFundBtn").onclick = () => {
+  if (!state) return;
+  const amount = parseFloat($("fundAmount").value);
+  if (!(amount > 0)) return toast("Please enter an amount");
+  state.funds.push({ id: uid(), label: $("fundLabel").value.trim(), amount, currency: $("fundCurrency").value, date: Date.now() });
+  $("fundAmount").value = ""; $("fundLabel").value = "";
+  $("fundAmount").blur();
+  save(); renderAll(); toast("💰 Money added");
+};
+$("fundLabel").onkeydown = e => { if (e.key === "Enter") $("fundAmount").focus(); };
+$("fundAmount").onkeydown = e => { if (e.key === "Enter") $("addFundBtn").click(); };
+$("fundList").onclick = e => {
+  if (!state) return;
+  const id = e.target.dataset.delFund;
+  if (id && confirm("Remove this money from your budget?")) { state.funds = state.funds.filter(f => f.id !== id); save(); renderAll(); }
+};
+
+$("fab").onclick = () => openExpenseSheet();
+
+$("convAmount").oninput = renderConverter;
+$("convChips").onclick = e => { const v = e.target.dataset.chip; if (v) { $("convAmount").value = v; renderConverter(); } };
+$("convFrom").onchange = e => { if (!state) return; state.convFrom = e.target.value; save(); renderConverter(); };
+$("convTo").onchange = e => { if (!state) return; state.convTo = e.target.value; save(); renderConverter(); };
+$("swapBtn").onclick = () => {
+  if (!state) return;
+  [state.convFrom, state.convTo] = [state.convTo, state.convFrom];
+  $("convFrom").value = state.convFrom; $("convTo").value = state.convTo;
+  save(); renderConverter();
+};
+$("refreshRatesBtn").onclick = () => fetchRates(true);
+
+$("resetBtn").onclick = () => {
+  if (state) deleteTrip(state.id);
+};
+
+/* =========================================================
+   Start up
+   ========================================================= */
+async function init() {
+  app = loadApp();
+  state = null;
+  app.currentTripId = null;
+  renderTheme();
+  renderAll();
+  tick();
+  setInterval(tick, 1000);
+  if (await PhotoDB.open()) { await PhotoDB.loadAll(); renderAll(); }
+  fetchRates();
+}
+init();
+</script>
+</body>
+</html>
