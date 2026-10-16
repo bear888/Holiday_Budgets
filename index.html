@@ -462,6 +462,14 @@
         <div class="tz-hint" id="settingsTzHint"></div>
       </div>
       <div class="card">
+        <h2>☁️ Cloud Backup</h2>
+        <div id="authSection" style="text-align: center;">
+          <p class="muted" id="authStatusText">Sign in to securely backup your trips and photos to the cloud.</p>
+          <button class="btn ghost" id="loginBtn" style="margin-top: 8px;">Sign in with Google</button>
+          <button class="btn ghost" id="logoutBtn" style="margin-top: 8px; display: none;">Sign Out</button>
+        </div>
+      </div>
+      <div class="card">
         <h2>⚙️ App</h2>
         <div class="setting-row"><span>Show totals in</span><select class="field" id="settingsCurrency"></select></div>
         <div class="setting-row"><span>Appearance</span><button class="tb-btn" id="themeBtn2">🌙 Dark</button></div>
@@ -694,6 +702,19 @@ const defaultApp = () => ({
 let app;          // loaded in init()
 let state = null;
 
+window.holidayApp = {
+  get app() { return app; },
+  set app(val) { app = val; },
+  get state() { return state; },
+  set state(val) { state = val; },
+  get PhotoDB() { return PhotoDB; },
+  get photoCache() { return photoCache; },
+  save: () => save(),
+  renderAll: () => renderAll(),
+  toast: (m) => toast(m),
+  STORAGE_KEY
+};
+
 function loadApp() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -729,7 +750,10 @@ function loadApp() {
   } catch { return defaultApp(); }
 }
 function save() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(app));
+    window.dispatchEvent(new CustomEvent('app-saved', { detail: { app } }));
+  }
   catch { toast("⚠️ Couldn't save – storage is full"); }
 }
 
@@ -2198,8 +2222,30 @@ async function init() {
   setInterval(tick, 1000);
   if (await PhotoDB.open()) { await PhotoDB.loadAll(); renderAll(); }
   fetchRates();
+
+  // Auth UI Listeners
+  window.addEventListener('auth-changed', (e) => {
+    const user = e.detail.user;
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const statusText = document.getElementById('authStatusText');
+
+    if (user) {
+      loginBtn.style.display = 'none';
+      logoutBtn.style.display = 'block';
+      statusText.innerHTML = `Signed in as <b>${esc(user.email)}</b><br>Your data is being backed up.`;
+    } else {
+      loginBtn.style.display = 'block';
+      logoutBtn.style.display = 'none';
+      statusText.textContent = 'Sign in to securely backup your trips and photos to the cloud.';
+    }
+  });
+
+  document.getElementById('loginBtn').onclick = () => window.holidayApp?.firebase?.login?.();
+  document.getElementById('logoutBtn').onclick = () => window.holidayApp?.firebase?.logout?.();
 }
 init();
 </script>
+<script type="module" src="firebase-sync.js"></script>
 </body>
 </html>
